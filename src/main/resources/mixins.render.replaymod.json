@@ -15,7 +15,9 @@
     "Mixin_ChromaKeyDisableFog",
     "Mixin_ChromaKeyForceSky",
     //#if MC>=12100
+    //#if FABRIC>=1
     //$$ "Mixin_FakeSystemTimeUniforms_Iris",
+    //#endif
     //#endif
     //#if MC>=12105
     //$$ "Mixin_FixCopyTextureToBuffer_DepthTexture",
@@ -36,8 +38,10 @@
     "Mixin_SuppressFramebufferResizeDuringRender",
     "Mixin_UseGuiFramebufferDuringGuiRendering",
     //#if MC>=11600
+    //#if FABRIC>=1
     "Mixin_AddIrisOdsShaderUniforms",
     "Mixin_LoadIrisOdsShaderPack",
+    //#endif
     //#endif
     //#if MC>=10800
     //#if MC>=11500

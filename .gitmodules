@@ -1,10 +1,11 @@
 [submodule "jGui"]
 	path = jGui
-	url = https://github.com/mattHmm/jGui
+	url = https://github.com/EaseCation/jGui.git
+	branch = neoforge-port
 
 [submodule "src/main/resources/assets/replaymod/lang"]
 	path = src/main/resources/assets/replaymod/lang
 	url = https://github.com/ReplayMod/Translations
 [submodule "ReplayStudio"]
 	path = libs/ReplayStudio
-	url = ../ReplayStudio
+	url = https://github.com/ReplayMod/ReplayStudio

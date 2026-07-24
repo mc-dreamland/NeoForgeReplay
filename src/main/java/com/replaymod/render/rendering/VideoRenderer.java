@@ -256,7 +256,11 @@ public class VideoRenderer implements RenderInfo {
         //$$ }
         //#else
         if (((MinecraftAccessor) mc).getCrashReporter() != null) {
+            //#if MC>=11800
+            //$$ throw new CrashException(((MinecraftAccessor) mc).getCrashReporter().get());
+            //#else
             throw new CrashException(((MinecraftAccessor) mc).getCrashReporter());
+            //#endif
         }
         //#endif
 
@@ -462,7 +466,11 @@ public class VideoRenderer implements RenderInfo {
             }
         }
 
+        //#if MC>=12108
+        //$$ mc.getSoundManager().play(PositionedSoundInstance.master(SoundEvent.of(SOUND_RENDER_SUCCESS), 1));
+        //#else
         mc.getSoundManager().play(PositionedSoundInstance.master(new SoundEvent(SOUND_RENDER_SUCCESS), 1));
+        //#endif
 
         try {
             if (!hasFailed() && ffmpegWriter != null) {

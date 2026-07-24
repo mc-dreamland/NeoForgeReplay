@@ -83,6 +83,13 @@ val shadow by configurations.creating {
 }
 
 dependencies {
+    if (project.name == "1.21.8-neoforge") {
+        mappings(loom.layered {
+            mappings("net.fabricmc:yarn:1.21.8+build.1:v2")
+            mappings(rootProject.file("versions/1.21.8-neoforge/neoforge-mapping-fixes.tiny"))
+        })
+    }
+
     if (platform.isFabric) {
         val fabricApiVersion = when (mcVersion) {
             11404 -> "0.4.3+build.247-1.14"

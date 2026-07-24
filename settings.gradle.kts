@@ -16,7 +16,7 @@ pluginManagement {
     }
 }
 
-val jGuiVersions = listOf(
+val allJGuiVersions = listOf(
         // "1.7.10",
         // "1.8",
         "1.8.9",
@@ -61,7 +61,7 @@ val jGuiVersions = listOf(
         "26.1",
         "26.1-neoforge",
 )
-val replayModVersions = listOf(
+val allReplayModVersions = listOf(
         // "1.7.10",
         // "1.8",
         "1.8.9",
@@ -110,6 +110,29 @@ val replayModVersions = listOf(
         "26.1-neoforge",
 )
 
+val targetVersion = providers.gradleProperty("replaymod.targetVersion").orNull
+val mc1218PreprocessChain = listOf(
+    "1.16.4", "1.17.1", "1.18.1", "1.18.2", "1.19", "1.19.1", "1.19.2", "1.19.3", "1.19.4",
+    "1.20.1", "1.20.2", "1.20.4", "1.20.6", "1.21", "1.21.2", "1.21.4", "1.21.5", "1.21.7",
+    "1.21.8-neoforge",
+)
+val replayModVersions = if (targetVersion == null) {
+    allReplayModVersions
+} else {
+    require(targetVersion in allReplayModVersions) { "Unsupported replaymod.targetVersion: $targetVersion" }
+    if (targetVersion == "1.21.8-neoforge") mc1218PreprocessChain else allReplayModVersions
+}
+val jGuiVersions = if (targetVersion == null) {
+    allJGuiVersions
+} else {
+    val jGuiVersion = when (targetVersion) {
+        "1.10.2", "1.11", "1.11.2" -> "1.9.4"
+        "1.12.1", "1.12.2" -> "1.12"
+        else -> targetVersion
+    }
+    if (targetVersion == "1.21.8-neoforge") mc1218PreprocessChain else allJGuiVersions
+}
+
 rootProject.buildFileName = "root.gradle.kts"
 
 includeBuild("libs/ReplayStudio")
@@ -119,7 +142,7 @@ project(":jGui").apply {
     projectDir = file("jGui")
     buildFileName = "root.gradle.kts"
 }
-jGuiVersions.forEach { version ->
+jGuiVersions.filter { file("jGui/versions/$it").isDirectory }.forEach { version ->
     include(":jGui:$version")
     project(":jGui:$version").apply {
         projectDir = file("jGui/versions/$version")

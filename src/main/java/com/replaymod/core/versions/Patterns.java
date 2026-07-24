@@ -527,6 +527,8 @@ class Patterns {
     private static PositionedSoundInstance master(Identifier sound, float pitch) {
         //#if MC >= 26.1
         //$$ return SimpleSoundInstance.forUI(SoundEvent.createVariableRangeEvent(sound), pitch);
+        //#elseif MC>=12108
+        //$$ return PositionedSoundInstance.master(SoundEvent.of(sound), pitch);
         //#elseif MC>=10900
         return PositionedSoundInstance.master(new SoundEvent(sound), pitch);
         //#elseif MC>=10800

@@ -12,7 +12,9 @@
     "AbstractButtonWidgetAccessor",
     "Mixin_PostRenderWorldCalback",
     "Mixin_PreRenderHandCallback",
+    //#if FABRIC>=1
     "Mixin_InjectDynamicResourcePacks",
+    //#endif
     //#endif
     //#if MC>=11400
     "MixinMouse",
