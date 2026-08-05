@@ -68,6 +68,12 @@ public class ConnectionEventHandler {
 
     public PacketListener onConnectedToServerEvent(ClientConnection networkManager, Boolean forcedAutoStart,
                                                     boolean installRecordingControls) {
+        return onConnectedToServerEvent(networkManager, forcedAutoStart, installRecordingControls, true);
+    }
+
+    public PacketListener onConnectedToServerEvent(ClientConnection networkManager, Boolean forcedAutoStart,
+                                                    boolean installRecordingControls,
+                                                    boolean installRecordingOverlay) {
         try {
             boolean local = networkManager.isLocal();
             if (local) {
@@ -189,10 +195,12 @@ public class ConnectionEventHandler {
                 guiControls = new GuiRecordingControls(core, packetListener, autoStart);
                 guiControls.register();
             }
-            guiOverlay = guiControls == null
-                    ? new GuiRecordingOverlay(getMinecraft(), core.getSettingsRegistry())
-                    : new GuiRecordingOverlay(getMinecraft(), core.getSettingsRegistry(), guiControls);
-            guiOverlay.register();
+            if (installRecordingOverlay) {
+                guiOverlay = guiControls == null
+                        ? new GuiRecordingOverlay(getMinecraft(), core.getSettingsRegistry())
+                        : new GuiRecordingOverlay(getMinecraft(), core.getSettingsRegistry(), guiControls);
+                guiOverlay.register();
+            }
 
             if (autoStart) {
                 core.printInfoToChat("replaymod.chat.recordingstarted");

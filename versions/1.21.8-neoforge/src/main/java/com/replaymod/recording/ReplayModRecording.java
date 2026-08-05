@@ -11,6 +11,7 @@ import com.replaymod.recording.mixin.NetworkManagerAccessor;
 import com.replaymod.recording.packet.PacketListener;
 import com.replaymod.replay.ReplayHandler;
 import com.replaymod.replay.production.ProductionReplaySessionController;
+import com.replaymod.replay.production.ProductionReplaySessionController.RecordingDecision;
 import io.netty.channel.Channel;
 import io.netty.util.AttributeKey;
 import net.minecraft.network.ClientConnection;
@@ -62,7 +63,13 @@ public class ReplayModRecording implements Module {
         if (channel.pipeline().get(ReplayHandler.PACKET_HANDLER_NAME) != null) return;
         if (channel.hasAttr(ATTR_CHECKED)) return;
         ProductionReplaySessionController sessionController = ProductionReplaySessionController.getInstance();
-        if (!sessionController.claimRecordingArm(networkManager)) {
+        RecordingDecision decision = sessionController.decideRecording(networkManager);
+        if (decision.shouldDefer()) {
+            return;
+        }
+        channel.attr(ATTR_CHECKED).set(null);
+        if (!decision.shouldInstallRecorder()) {
+            sessionController.onRecordingDecisionApplied(decision, null);
             return;
         }
         PacketListener previousListener = connectionEventHandler.getPacketListener();
@@ -71,9 +78,9 @@ public class ReplayModRecording implements Module {
             previousListener.finishRecording(false);
             connectionEventHandler.reset();
         }
-        channel.attr(ATTR_CHECKED).set(null);
-        PacketListener listener = connectionEventHandler.onConnectedToServerEvent(networkManager, true, false);
-        sessionController.onRecorderInstalled(listener);
+        PacketListener listener = connectionEventHandler.onConnectedToServerEvent(
+                networkManager, decision.shouldAutoStart(), false, false);
+        sessionController.onRecordingDecisionApplied(decision, listener);
     }
 
     public ConnectionEventHandler getConnectionEventHandler() {
