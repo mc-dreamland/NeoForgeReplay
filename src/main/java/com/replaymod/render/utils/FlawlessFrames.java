@@ -1,5 +1,8 @@
 package com.replaymod.render.utils;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
@@ -16,6 +19,7 @@ import static com.replaymod.core.ReplayMod.MOD_ID;
  * See https://github.com/grondag/frex/pull/9
  */
 public class FlawlessFrames {
+    private static final Logger LOGGER = LogManager.getLogger("ReplayMod/FlawlessFrames");
     private static final List<Consumer<Boolean>> CONSUMERS = new CopyOnWriteArrayList<>();
     private static boolean hasSodium;
 
@@ -25,9 +29,17 @@ public class FlawlessFrames {
         Consumer<Boolean> consumer = provider.apply(MOD_ID);
         CONSUMERS.add(consumer);
 
-        if (provider.getClass().getName().contains(".sodium.") || consumer.getClass().getName().contains(".sodium.")) {
+        boolean sodium = provider.getClass().getName().contains(".sodium.")
+                || consumer.getClass().getName().contains(".sodium.");
+        if (sodium) {
             hasSodium = true;
         }
+        LOGGER.info("Registered Flawless Frames controller provider={} sodium={}",
+                provider.getClass().getName(), sodium);
+    }
+
+    public static void acceptController(Function<String, Consumer<Boolean>> provider) {
+        registerConsumer(provider);
     }
 
     public static void setEnabled(boolean enabled) {

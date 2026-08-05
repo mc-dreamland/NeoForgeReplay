@@ -11,6 +11,9 @@ issueTrackerURL = "https://github.com/ReplayMod/ReplayMod/issues"
     logoFile        = "assets/replaymod/favicon_logo.png"
     displayTest     = "IGNORE_ALL_VERSION"
 
+[modproperties.replaymod]
+    "frex:flawless_frames_handler" = "com.replaymod.render.utils.FlawlessFrames"
+
     [[dependencies.replaymod]]
         modId         = "neoforge"
         type          = "required"

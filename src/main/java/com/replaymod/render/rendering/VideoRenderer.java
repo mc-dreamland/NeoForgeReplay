@@ -1,6 +1,7 @@
 package com.replaymod.render.rendering;
 
 import com.mojang.blaze3d.platform.GlStateManager;
+import com.replaymod.core.ReplayMod;
 import com.replaymod.core.mixin.MinecraftAccessor;
 import com.replaymod.core.mixin.TimerAccessor;
 import com.replaymod.core.versions.MCVer;
@@ -815,14 +816,14 @@ public class VideoRenderer implements RenderInfo {
     }
 
     public static String[] checkCompat(RenderSettings settings) {
-        //#if FABRIC>=1
-        if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("sodium") && !FlawlessFrames.hasSodium()) {
+        if (ReplayMod.instance.isModLoaded("sodium") && !FlawlessFrames.hasSodium()) {
             return new String[] {
                     "Rendering is not supported with your Sodium version.",
                     "It is missing support for the FREX Flawless Frames API.",
                     "Either use the Sodium build from replaymod.com or uninstall Sodium before rendering!",
             };
         }
+        //#if FABRIC>=1
         //#if MC>=11700
         //$$ if (settings.getRenderMethod() == RenderSettings.RenderMethod.ODS
         //$$         && !net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("iris")) {
