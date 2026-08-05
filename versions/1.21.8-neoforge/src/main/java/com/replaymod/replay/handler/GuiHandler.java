@@ -12,6 +12,8 @@ import com.replaymod.replay.ReplayModReplay;
 import com.replaymod.replay.gui.screen.GuiReplayViewer;
 import com.replaymod.replay.production.ProductionReplaySessionController;
 import com.replaymod.replay.production.ReplaySessionState;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.screen.GameMenuScreen;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
@@ -59,6 +61,15 @@ public class GuiHandler extends EventRegistrations {
     private static final int BUTTON_EXIT_REPLAY = 17890235;
     private static final int BUTTON_RECORDING = 17890236;
     private static final int BUTTON_INGAME_REPLAY_VIEWER = 17890237;
+    private static final int PRODUCTION_CONTROLS_X = 8;
+    private static final int PRODUCTION_CONTROLS_Y = 8;
+    private static final int PRODUCTION_CONTROL_SIZE = 20;
+    private static final int PRODUCTION_CONTROL_GAP = 4;
+    private static final int PRODUCTION_CONTROL_ROW_STEP = 24;
+    private static final int PRODUCTION_ICON_SIZE = 14;
+    private static final int PRODUCTION_ICON_LEFT_PADDING = 3;
+    private static final int PRODUCTION_ICON_TEXT_GAP = 4;
+    private static final int PRODUCTION_TEXT_RIGHT_PADDING = 4;
 
     private final ReplayModReplay mod;
 
@@ -192,32 +203,174 @@ public class GuiHandler extends EventRegistrations {
         if (!controller.isLiveServer()) {
             return;
         }
-
-        ClickableWidget disconnect = findButton(buttonList, "menu.disconnect", 1).orElse(null);
-        int x = guiScreen.width / 2 - 100;
-        int y = guiScreen.height / 4 + 120 - 16;
-        if (disconnect != null) {
-            x = disconnect.getX();
-            y = disconnect.getY();
-            disconnect.setY(y + 24);
+        if (buttonList.stream().anyMatch(button -> button instanceof InjectedButton injected
+                && (injected.id == BUTTON_RECORDING || injected.id == BUTTON_INGAME_REPLAY_VIEWER))) {
+            return;
         }
 
-        ReplaySessionState state = controller.getState();
-        String recordingLabel = state == ReplaySessionState.LIVE_RECORDING
-                ? "replaymod.production.stop_recording"
-                : "replaymod.production.start_recording";
-        InjectedButton recordingButton = new InjectedButton(
-                guiScreen, BUTTON_RECORDING, x, y, 98, 20,
-                recordingLabel, null, this::onButton);
-        recordingButton.active = state == ReplaySessionState.LIVE_UNARMED
-                || state == ReplaySessionState.LIVE_RECORDING;
+        int groupWidth = productionRecordingButtonWidth(guiScreen, controller.getState())
+                + PRODUCTION_CONTROL_GAP + PRODUCTION_CONTROL_SIZE;
+        int y = findProductionControlsY(guiScreen, buttonList, groupWidth);
+        ProductionControls controls = new ProductionControls(guiScreen, PRODUCTION_CONTROLS_X, y);
+        buttonList.add(controls.recordingButton);
+        buttonList.add(controls.replayViewerButton);
+    }
 
-        InjectedButton replayViewerButton = new InjectedButton(
-                guiScreen, BUTTON_INGAME_REPLAY_VIEWER, x + 102, y, 98, 20,
-                "replaymod.production.replay_center", null, this::onButton);
-        replayViewerButton.active = controller.canOpenReplayCenter();
-        buttonList.add(recordingButton);
-        buttonList.add(replayViewerButton);
+    private int findProductionControlsY(Screen screen, Collection<ClickableWidget> buttons, int groupWidth) {
+        for (int y = PRODUCTION_CONTROLS_Y;
+             y + PRODUCTION_CONTROL_SIZE <= screen.height - PRODUCTION_CONTROLS_Y;
+             y += PRODUCTION_CONTROL_ROW_STEP) {
+            final int candidateY = y;
+            boolean occupied = buttons.stream()
+                    .filter(button -> button.visible)
+                    .anyMatch(button -> rectanglesOverlap(
+                            PRODUCTION_CONTROLS_X, candidateY, groupWidth, PRODUCTION_CONTROL_SIZE,
+                            button.getX(), button.getY(), button.getWidth(), button.getHeight()));
+            if (!occupied) {
+                return y;
+            }
+        }
+        return PRODUCTION_CONTROLS_Y;
+    }
+
+    private static boolean rectanglesOverlap(int firstX, int firstY, int firstWidth, int firstHeight,
+                                             int secondX, int secondY, int secondWidth, int secondHeight) {
+        return firstX < secondX + secondWidth && firstX + firstWidth > secondX
+                && firstY < secondY + secondHeight && firstY + firstHeight > secondY;
+    }
+
+    private static int productionRecordingButtonWidth(Screen screen, ReplaySessionState state) {
+        if (state == ReplaySessionState.LIVE_UNARMED) {
+            return PRODUCTION_CONTROL_SIZE;
+        }
+        int desiredWidth = MinecraftClient.getInstance().textRenderer.getWidth(
+                Text.translatable(recordingLabelKey(state)))
+                + PRODUCTION_ICON_LEFT_PADDING + PRODUCTION_ICON_SIZE
+                + PRODUCTION_ICON_TEXT_GAP + PRODUCTION_TEXT_RIGHT_PADDING;
+        int maxWidth = screen.width - PRODUCTION_CONTROLS_X - PRODUCTION_CONTROL_GAP
+                - PRODUCTION_CONTROL_SIZE - PRODUCTION_CONTROLS_X;
+        return Math.max(PRODUCTION_CONTROL_SIZE, Math.min(desiredWidth, maxWidth));
+    }
+
+    private static String recordingLabelKey(ReplaySessionState state) {
+        return switch (state) {
+            case ARMING_TRANSFER -> "replaymod.production.reconnecting_recording";
+            case LIVE_RECORDING -> "replaymod.production.recording_active_action";
+            case FINALIZING_RECORDING -> "replaymod.production.saving_recording";
+            default -> "replaymod.production.start_recording";
+        };
+    }
+
+    private final class ProductionControls {
+        private final Screen screen;
+        private final int x;
+        private final int y;
+        private final ProductionRecordingButton recordingButton;
+        private final ProductionReplayViewerButton replayViewerButton;
+        private ReplaySessionState renderedState;
+        private boolean recordingExpanded;
+
+        private ProductionControls(Screen screen, int x, int y) {
+            this.screen = screen;
+            this.x = x;
+            this.y = y;
+            this.recordingButton = new ProductionRecordingButton(this);
+            this.replayViewerButton = new ProductionReplayViewerButton(this);
+            refresh();
+        }
+
+        private void refresh() {
+            ProductionReplaySessionController controller = ProductionReplaySessionController.getInstance();
+            ReplaySessionState state = controller.getState();
+            if (state == renderedState) {
+                return;
+            }
+            renderedState = state;
+            recordingExpanded = state != ReplaySessionState.LIVE_UNARMED;
+
+            String recordingLabel = recordingLabelKey(state);
+            recordingButton.setMessage(Text.translatable(recordingLabel));
+            recordingButton.setWidth(productionRecordingButtonWidth(screen, state));
+            recordingButton.setX(x);
+            recordingButton.setY(y);
+            recordingButton.active = state == ReplaySessionState.LIVE_UNARMED
+                    || state == ReplaySessionState.LIVE_RECORDING;
+            String recordingTooltip = switch (state) {
+                case LIVE_UNARMED -> "replaymod.production.start_recording.tooltip";
+                case LIVE_RECORDING -> "replaymod.production.stop_recording.tooltip";
+                default -> recordingLabel;
+            };
+            recordingButton.setTooltip(Tooltip.of(Text.translatable(recordingTooltip)));
+
+            replayViewerButton.setX(x + recordingButton.getWidth() + PRODUCTION_CONTROL_GAP);
+            replayViewerButton.setY(y);
+            replayViewerButton.active = controller.canOpenReplayCenter();
+            replayViewerButton.setTooltip(Tooltip.of(Text.translatable("replaymod.production.replay_center")));
+        }
+    }
+
+    private final class ProductionRecordingButton extends InjectedButton {
+        private final ProductionControls controls;
+
+        private ProductionRecordingButton(ProductionControls controls) {
+            super(controls.screen, BUTTON_RECORDING, controls.x, controls.y,
+                    PRODUCTION_CONTROL_SIZE, PRODUCTION_CONTROL_SIZE,
+                    "replaymod.production.start_recording", null, GuiHandler.this::onButton);
+            this.controls = controls;
+        }
+
+        @Override
+        protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
+            controls.refresh();
+            super.renderWidget(context, mouseX, mouseY, delta);
+
+            MinecraftGuiRenderer renderer = new MinecraftGuiRenderer(context);
+            renderer.bindTexture(com.replaymod.core.ReplayMod.TEXTURE);
+            renderer.drawTexturedRect(getX() + PRODUCTION_ICON_LEFT_PADDING, getY() + 3,
+                    58, 20, PRODUCTION_ICON_SIZE, PRODUCTION_ICON_SIZE, 16, 16,
+                    com.replaymod.core.ReplayMod.TEXTURE_SIZE,
+                    com.replaymod.core.ReplayMod.TEXTURE_SIZE);
+        }
+
+        @Override
+        public void drawMessage(DrawContext context, TextRenderer textRenderer, int color) {
+            if (!controls.recordingExpanded) {
+                return;
+            }
+            int textLeft = getX() + PRODUCTION_ICON_LEFT_PADDING + PRODUCTION_ICON_SIZE
+                    + PRODUCTION_ICON_TEXT_GAP;
+            int textRight = getX() + getWidth() - PRODUCTION_TEXT_RIGHT_PADDING;
+            drawScrollableText(context, textRenderer, getMessage(),
+                    textLeft, getY(), textRight, getY() + getHeight(), color);
+        }
+    }
+
+    private final class ProductionReplayViewerButton extends InjectedButton {
+        private final ProductionControls controls;
+
+        private ProductionReplayViewerButton(ProductionControls controls) {
+            super(controls.screen, BUTTON_INGAME_REPLAY_VIEWER,
+                    controls.x + PRODUCTION_CONTROL_SIZE + PRODUCTION_CONTROL_GAP, controls.y,
+                    PRODUCTION_CONTROL_SIZE, PRODUCTION_CONTROL_SIZE,
+                    "replaymod.production.replay_center", null, GuiHandler.this::onButton);
+            this.controls = controls;
+        }
+
+        @Override
+        protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
+            controls.refresh();
+            super.renderWidget(context, mouseX, mouseY, delta);
+
+            MinecraftGuiRenderer renderer = new MinecraftGuiRenderer(context);
+            renderer.bindTexture(GuiReplayButton.ICON);
+            renderer.drawTexturedRect(getX() + 3, getY() + 3,
+                    0, 0, 14, 14, 1, 1, 1, 1);
+        }
+
+        @Override
+        public void drawMessage(DrawContext context, TextRenderer textRenderer, int color) {
+            // The semantic message remains available for narration and tooltips.
+        }
     }
 
     /**
@@ -568,12 +721,10 @@ public class GuiHandler extends EventRegistrations {
                     }
                 }
             } else if (button.id == BUTTON_RECORDING && mod.getReplayHandler() == null) {
-                button.active = false;
                 if (controller.getState() == ReplaySessionState.LIVE_RECORDING) {
                     controller.requestStopRecording();
-                    guiScreen.close();
                 } else {
-                    controller.requestStartRecording();
+                    controller.requestStartRecording(guiScreen);
                 }
             } else if (button.id == BUTTON_INGAME_REPLAY_VIEWER && mod.getReplayHandler() == null) {
                 new GuiReplayViewer(mod).display();

@@ -5,6 +5,7 @@ import com.replaymod.recording.ReplayModRecording;
 import com.replaymod.recording.mixin.ClientLoginNetworkHandlerAccessor;
 import com.replaymod.recording.mixin.NetworkManagerAccessor;
 import com.replaymod.recording.packet.PacketListener;
+import com.replaymod.recording.packet.RecordingResult;
 import com.replaymod.replay.ReplayModReplay;
 import com.replaymod.replay.ReplaySessionHooks;
 import io.netty.channel.Channel;
@@ -18,6 +19,7 @@ import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
 import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
+import net.minecraft.client.toast.SystemToast;
 import net.minecraft.network.ClientConnection;
 import net.minecraft.network.packet.s2c.common.ServerTransferS2CPacket;
 import net.minecraft.text.Text;
@@ -34,6 +36,7 @@ public final class ProductionReplaySessionController implements ReplaySessionHoo
     private static final Logger LOGGER = LogManager.getLogger("ReplayMod/ProductionSession");
     private static final long ARM_TIMEOUT_MS = 30_000L;
     private static final long TRANSITION_TIMEOUT_MS = 15_000L;
+    private static final SystemToast.Type RECORDING_SAVE_TOAST = new SystemToast.Type();
     private static final ProductionReplaySessionController INSTANCE = new ProductionReplaySessionController();
 
     private ReplayMod core;
@@ -77,16 +80,41 @@ public final class ProductionReplaySessionController implements ReplaySessionHoo
                 || state == ReplaySessionState.LIVE_RECORDING);
     }
 
-    public void requestStartRecording() {
+    public void requestStartRecording(Screen returnScreen) {
         if (state != ReplaySessionState.LIVE_UNARMED || !isLiveServer()) {
             return;
         }
-        ReturnTarget target = captureCurrentTarget();
-        if (target == null) {
+        if (captureCurrentTarget() == null) {
             warn("replaymod.production.invalid_server");
             return;
         }
 
+        MinecraftClient mc = MinecraftClient.getInstance();
+        mc.setScreen(new ConfirmScreen(confirmed -> {
+            if (!confirmed) {
+                if (state == ReplaySessionState.LIVE_UNARMED && isLiveServer()) {
+                    mc.setScreen(returnScreen);
+                }
+                return;
+            }
+            if (state != ReplaySessionState.LIVE_UNARMED || !isLiveServer()) {
+                LOGGER.warn("Recording confirmation became stale before it was accepted");
+                return;
+            }
+            ReturnTarget confirmedTarget = captureCurrentTarget();
+            if (confirmedTarget == null) {
+                warn("replaymod.production.invalid_server");
+                mc.setScreen(returnScreen);
+                return;
+            }
+            beginStartRecording(confirmedTarget);
+        }, Text.translatable("replaymod.production.start_recording.confirm.title"),
+                Text.translatable("replaymod.production.start_recording.confirm.detail"),
+                Text.translatable("replaymod.production.start_recording.confirm.accept"),
+                Text.translatable("gui.cancel")));
+    }
+
+    private void beginStartRecording(ReturnTarget target) {
         MinecraftClient mc = MinecraftClient.getInstance();
         ClientConnection source = mc.getNetworkHandler().getConnection();
         recordingArm = new RecordingArm(target, source, System.currentTimeMillis() + ARM_TIMEOUT_MS, false);
@@ -189,18 +217,39 @@ public final class ProductionReplaySessionController implements ReplaySessionHoo
         PacketListener listener = ReplayModRecording.instance.getConnectionEventHandler().getPacketListener();
         if (listener == null) {
             setState(ReplaySessionState.LIVE_UNARMED, "recorder was already absent");
+            showRecordingSaveFailureToast();
             return;
         }
         setState(ReplaySessionState.FINALIZING_RECORDING, "manual stop");
         listener.finishRecording(false).whenComplete((result, throwable) -> core.runLater(() -> {
             if (throwable != null) {
                 LOGGER.error("Failed to finalize recording", unwrap(throwable));
-                warn("replaymod.production.save_failed");
+                setState(ReplaySessionState.LIVE_UNARMED, "manual recording finalization failed");
+                showRecordingSaveFailureToast();
             } else {
-                core.printInfoToChat("replaymod.production.recording_saved");
+                setState(ReplaySessionState.LIVE_UNARMED, "manual recording finalization complete");
+                showRecordingSavedToast(result);
             }
-            setState(ReplaySessionState.LIVE_UNARMED, "manual recording finalization complete");
         }));
+    }
+
+    private void showRecordingSavedToast(RecordingResult result) {
+        int outputCount = result == null ? 0 : result.getOutputPaths().size();
+        Text detail;
+        if (outputCount == 1) {
+            String fileName = result.getOutputPaths().get(0).getKey().getFileName().toString();
+            detail = Text.translatable("replaymod.production.recording_saved.file", fileName);
+        } else {
+            detail = Text.translatable("replaymod.production.recording_saved.multiple", outputCount);
+        }
+        SystemToast.show(MinecraftClient.getInstance().getToastManager(), RECORDING_SAVE_TOAST,
+                Text.translatable("replaymod.production.recording_saved"), detail);
+    }
+
+    private void showRecordingSaveFailureToast() {
+        SystemToast.show(MinecraftClient.getInstance().getToastManager(), RECORDING_SAVE_TOAST,
+                Text.translatable("replaymod.production.save_failed"),
+                Text.translatable("replaymod.production.save_failed.detail"));
     }
 
     @Override
