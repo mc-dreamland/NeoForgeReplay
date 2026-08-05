@@ -121,10 +121,12 @@ public class ReplayModSimplePathing extends EventRegistrations implements Module
                 if (keyInput.hasShift()) {
                     if (timeline.peekRedoStack() != null) {
                         timeline.redoLastChange();
+                        setSelected(null, 0);
                     }
                 } else {
                     if (timeline.peekUndoStack() != null) {
                         timeline.undoLastChange();
+                        setSelected(null, 0);
                     }
                 }
                 return true;
@@ -136,6 +138,7 @@ public class ReplayModSimplePathing extends EventRegistrations implements Module
                 Timeline timeline = currentTimeline.getTimeline();
                 if (timeline.peekRedoStack() != null) {
                     timeline.redoLastChange();
+                    setSelected(null, 0);
                 }
                 return true;
             }
@@ -202,6 +205,10 @@ public class ReplayModSimplePathing extends EventRegistrations implements Module
 
     public SPPath getSelectedPath() {
         if (getReplayOverlay().timeline.getSelectedMarker() != null) {
+            selectedPath = null;
+            selectedTime = 0;
+        } else if (selectedPath != null
+                && (currentTimeline == null || currentTimeline.getKeyframe(selectedPath, selectedTime) == null)) {
             selectedPath = null;
             selectedTime = 0;
         }

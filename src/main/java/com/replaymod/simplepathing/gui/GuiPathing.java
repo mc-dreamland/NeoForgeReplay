@@ -658,11 +658,20 @@ public class GuiPathing {
      * @param neverSpectator when true, will insert a position keyframe even when currently spectating an entity
      */
     public void toggleKeyframe(SPPath path, boolean neverSpectator) {
-        LOGGER.debug("Updating keyframe on path {}" + path);
         if (!loadEntityTracker(() -> toggleKeyframe(path, neverSpectator))) return;
 
         int time = timeline.getCursorPosition();
         SPTimeline timeline = mod.getCurrentTimeline();
+        SPPath selectedPath = mod.getSelectedPath();
+        long selectedTime = mod.getSelectedTime();
+        boolean selectedKeyframeExists = selectedPath != null
+                && timeline.getKeyframe(selectedPath, selectedTime) != null;
+        if (selectedPath != null && !selectedKeyframeExists) {
+            mod.setSelected(null, 0);
+            selectedPath = null;
+        }
+        LOGGER.debug("Updating keyframe on path {}, selected path {}, selected time {}, cursor time {}, selected exists {}",
+                path, selectedPath, selectedTime, time, selectedKeyframeExists);
 
         if (timeline.getPositionPath().getKeyframes().isEmpty() &&
                 timeline.getTimePath().getKeyframes().isEmpty() &&
@@ -673,9 +682,9 @@ public class GuiPathing {
 
         switch (path) {
             case TIME:
-                if (mod.getSelectedPath() == path) {
+                if (selectedPath == path) {
                     LOGGER.debug("Selected keyframe is time keyframe -> removing keyframe");
-                    timeline.removeTimeKeyframe(mod.getSelectedTime());
+                    timeline.removeTimeKeyframe(selectedTime);
                     mod.setSelected(null, 0);
                 } else if (timeline.isTimeKeyframe(time)) {
                     LOGGER.debug("Keyframe at cursor position is time keyframe -> removing keyframe");
@@ -688,9 +697,9 @@ public class GuiPathing {
                 }
                 break;
             case POSITION:
-                if (mod.getSelectedPath() == path) {
+                if (selectedPath == path) {
                     LOGGER.debug("Selected keyframe is position keyframe -> removing keyframe");
-                    timeline.removePositionKeyframe(mod.getSelectedTime());
+                    timeline.removePositionKeyframe(selectedTime);
                     mod.setSelected(null, 0);
                 } else if (timeline.isPositionKeyframe(time)) {
                     LOGGER.debug("Keyframe at cursor position is position keyframe -> removing keyframe");
