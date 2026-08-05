@@ -21,6 +21,7 @@ import com.replaymod.core.utils.Utils;
 import com.replaymod.core.versions.MCVer;
 import com.replaymod.core.versions.MCVer.Keyboard;
 import com.replaymod.replay.ReplayModReplay;
+import com.replaymod.replay.ReplaySessionHooks;
 import com.replaymod.replay.Setting;
 import com.replaymod.replaystudio.replay.ReplayFile;
 import com.replaymod.replaystudio.replay.ReplayMetaData;
@@ -112,11 +113,21 @@ public class GuiReplayViewer extends GuiScreen {
                         .filter(it -> !it.renderQueue.isEmpty())
                         .map(it -> Pair.of(it.file, it.renderQueue))
                         .iterator();
-                GuiRenderQueue.processMultipleReplays(GuiReplayViewer.this, mod, replays, () -> {
-                    loading = false;
-                    updateButtons();
-                    display();
-                });
+                ReplaySessionHooks.ReplayLaunch launch = () -> GuiRenderQueue.processMultipleReplays(
+                        GuiReplayViewer.this, mod, replays, () -> {
+                            loading = false;
+                            updateButtons();
+                            if (!ReplaySessionHooks.completeReplaySession()) {
+                                display();
+                            }
+                        });
+                if (!ReplaySessionHooks.prepareReplayLaunch(launch)) {
+                    try {
+                        launch.run();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
             }
         }
     }).setSize(150, 20);

@@ -83,10 +83,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static com.replaymod.core.versions.MCVer.*;
 import static com.replaymod.replaystudio.util.Utils.writeInt;
@@ -132,6 +135,10 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
      * as such prevents unnecessary writes.
      */
     private final AtomicInteger lastSaveMetaDataId = new AtomicInteger();
+    private final AtomicBoolean finishing = new AtomicBoolean();
+    private final CompletableFuture<RecordingResult> finishFuture = new CompletableFuture<>();
+    private final AtomicReference<Throwable> saveFailure = new AtomicReference<>();
+    private volatile boolean acceptingPackets = true;
 
     public PacketListener(ReplayMod core, Channel channel, Path outputPath, ReplayFile replayFile, ReplayMetaData metaData) throws IOException {
         this.core = core;
@@ -170,6 +177,7 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
                 }
             } catch (IOException e) {
                 logger.error("Writing metadata:", e);
+                saveFailure.compareAndSet(null, e);
             }
         });
     }
@@ -186,6 +194,9 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
     }
 
     public void save(Packet packet) {
+        if (!acceptingPackets) {
+            return;
+        }
         // If we're not on the main thread (i.e. we're on the netty thread), then we need to schedule the saving
         // to happen on the main thread so we can guarantee correct ordering of inbound and inject packets.
         // Otherwise, injected packets may end up further down the packet stream than they were supposed to and other
@@ -240,6 +251,7 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
                         packetOutputStream.write(packetData);
                     }
                 } catch (IOException e) {
+                    saveFailure.compareAndSet(null, e);
                     throw new RuntimeException(e);
                 }
             });
@@ -250,6 +262,42 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
+        beginFinish(true, false);
+    }
+
+    /**
+     * Stops recording without closing the live network connection.
+     */
+    public CompletableFuture<RecordingResult> finishRecording(boolean showSavingGui) {
+        beginFinish(showSavingGui, true);
+        return finishFuture;
+    }
+
+    private void beginFinish(boolean showSavingGui, boolean detachFromPipeline) {
+        if (!finishing.compareAndSet(false, true)) {
+            return;
+        }
+
+        Runnable stopAcceptingPackets = () -> {
+            acceptingPackets = false;
+            if (detachFromPipeline) {
+                if (channel.pipeline().get(DECODED_RECORDER_KEY) != null) {
+                    channel.pipeline().remove(DECODED_RECORDER_KEY);
+                }
+                if (channel.pipeline().get(RAW_RECORDER_KEY) != null) {
+                    channel.pipeline().remove(RAW_RECORDER_KEY);
+                }
+            }
+            finishOnWorker(showSavingGui);
+        };
+        if (channel.eventLoop().inEventLoop()) {
+            stopAcceptingPackets.run();
+        } else {
+            channel.eventLoop().execute(stopAcceptingPackets);
+        }
+    }
+
+    private void finishOnWorker(boolean showSavingGui) {
         metaData.setDuration((int) lastSentPacket);
         saveMetaData();
 
@@ -262,18 +310,26 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
 
         GuiSavingReplay guiSavingReplay = new GuiSavingReplay(core);
         new Thread(() -> {
-            core.runLater(guiSavingReplay::open);
+            if (showSavingGui) {
+                core.runLater(guiSavingReplay::open);
+            }
 
             saveService.shutdown();
             try {
-                saveService.awaitTermination(10, TimeUnit.SECONDS);
+                while (!saveService.awaitTermination(1, TimeUnit.SECONDS)) {
+                    // Saving runs off-thread, so waiting here does not stall the client.
+                }
             } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
                 logger.error("Waiting for save service termination:", e);
+                finishFuture.completeExceptionally(e);
+                return;
             }
             try {
                 packetOutputStream.close();
             } catch (IOException e) {
                 logger.error("Failed to close packet output stream:", e);
+                saveFailure.compareAndSet(null, e);
             }
 
             List<Pair<Path, ReplayMetaData>> outputPaths;
@@ -300,6 +356,8 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
 
                         // Done, clean up the marker
                         Files.delete(noRecoverMarker);
+                        outputPaths = Collections.singletonList(Pair.of(rawPath, metaData));
+                        completeFinish(outputPaths, showSavingGui, guiSavingReplay);
                         return;
                     }
 
@@ -314,13 +372,64 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
                 } catch (Exception e) {
                     logger.error("Saving replay file:", e);
                     CrashReport crashReport = CrashReport.create(e, "Saving replay file");
-                    core.runLater(() -> Utils.error(logger, VanillaGuiScreen.wrap(mc.currentScreen), crashReport, guiSavingReplay::close));
+                    if (showSavingGui) {
+                        core.runLater(() -> Utils.error(logger, VanillaGuiScreen.wrap(mc.currentScreen), crashReport, guiSavingReplay::close));
+                    }
+                    finishFuture.completeExceptionally(e);
                     return;
                 }
             }
 
+            completeFinish(outputPaths, showSavingGui, guiSavingReplay);
+        }, "ReplayMod-SaveRecording").start();
+    }
+
+    private void completeFinish(List<Pair<Path, ReplayMetaData>> outputPaths, boolean showSavingGui,
+                                GuiSavingReplay guiSavingReplay) {
+        Throwable failure = saveFailure.get();
+        if (failure != null) {
+            finishFuture.completeExceptionally(failure);
+            return;
+        }
+        List<Pair<Path, ReplayMetaData>> finishedOutputPaths = outputPaths;
+        if (!showSavingGui) {
+            try {
+                finishedOutputPaths = publishFinishedReplays(outputPaths);
+            } catch (IOException e) {
+                logger.error("Failed to publish finished replay:", e);
+                finishFuture.completeExceptionally(e);
+                return;
+            }
+        }
+        finishFuture.complete(new RecordingResult(finishedOutputPaths));
+        if (showSavingGui) {
             core.runLater(() -> guiSavingReplay.presentRenameDialog(outputPaths));
-        }).start();
+        }
+    }
+
+    private List<Pair<Path, ReplayMetaData>> publishFinishedReplays(
+            List<Pair<Path, ReplayMetaData>> outputPaths) throws IOException {
+        Path recordingFolder = core.folders.getRecordingFolder().toAbsolutePath().normalize();
+        Path replayFolder = core.folders.getReplayFolder().toAbsolutePath().normalize();
+        List<Pair<Path, ReplayMetaData>> published = new java.util.ArrayList<>(outputPaths.size());
+
+        for (Pair<Path, ReplayMetaData> output : outputPaths) {
+            Path source = output.getKey().toAbsolutePath().normalize();
+            if (!recordingFolder.equals(source.getParent())) {
+                published.add(output);
+                continue;
+            }
+
+            String replayName = FilenameUtils.getBaseName(source.getFileName().toString());
+            Path destination = Utils.replayNameToPath(replayFolder, replayName);
+            for (int i = 1; Files.exists(destination); i++) {
+                destination = Utils.replayNameToPath(replayFolder, replayName + " (" + i + ")");
+            }
+            Files.move(source, destination);
+            logger.info("Published finished replay {} to {}", source, destination);
+            published.add(Pair.of(destination, output.getValue()));
+        }
+        return published;
     }
 
     @Override
@@ -483,6 +592,7 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
                     replayFile.writeMarkers(markers);
                 } catch (IOException e) {
                     logger.error("Writing markers:", e);
+                    saveFailure.compareAndSet(null, e);
                 }
             }
         });

@@ -24,6 +24,10 @@
     //#endif
     "MixinKeyboardListener",
     "MixinMinecraft",
+    //#if MC==12108 && FABRIC<=0
+    "MixinClientCommonNetworkHandlerProductionRecording",
+    "MixinMinecraftProductionTransition",
+    //#endif
     "GuiScreenAccessor",
     "KeyBindingAccessor",
     "MinecraftAccessor",

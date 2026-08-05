@@ -34,6 +34,12 @@ version = "${project.name}-${rootProject.version}"
 base.archivesName.set("replaymod")
 java.withSourcesJar()
 
+if (project.name == "1.21.8-neoforge") {
+    tasks.processResources {
+        from(rootProject.file("LICENSE"))
+    }
+}
+
 loom {
     noServerRunConfigs()
 }

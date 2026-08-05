@@ -294,9 +294,11 @@ public class ReplayHandler {
 
         ReplayModReplay.instance.forcefullyStopReplay();
 
-        mc.openScreen(null);
-
         ReplayClosedCallback.EVENT.invoker().replayClosed(this);
+        if (!ReplaySessionHooks.isManagedReplaySession()) {
+            mc.openScreen(null);
+        }
+        ReplaySessionHooks.onReplayClosed();
     }
 
     private void setup() {

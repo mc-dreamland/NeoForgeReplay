@@ -182,6 +182,9 @@ public class ReplayModReplay implements Module {
                 return null;
             }
         }
+        if (ReplaySessionHooks.prepareReplayLaunch(() -> startReplay(replayFile, false, asyncMode))) {
+            return null;
+        }
         replayHandler = new ReplayHandler(replayFile, asyncMode);
         KeyBinding.updateKeysByCode(); // see Mixin_ContextualKeyBindings
 

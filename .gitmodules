@@ -5,7 +5,7 @@
 
 [submodule "src/main/resources/assets/replaymod/lang"]
 	path = src/main/resources/assets/replaymod/lang
-	url = https://github.com/ReplayMod/Translations
+	url = https://github.com/EaseCation/Translations
 [submodule "ReplayStudio"]
 	path = libs/ReplayStudio
-	url = https://github.com/ReplayMod/ReplayStudio
+	url = https://github.com/EaseCation/ReplayStudio

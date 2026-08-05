@@ -10,6 +10,7 @@ import com.replaymod.recording.handler.GuiHandler;
 import com.replaymod.recording.mixin.NetworkManagerAccessor;
 import com.replaymod.recording.packet.PacketListener;
 import com.replaymod.replay.ReplayHandler;
+import com.replaymod.replay.production.ProductionReplaySessionController;
 import io.netty.channel.Channel;
 import io.netty.util.AttributeKey;
 import net.minecraft.network.ClientConnection;
@@ -51,6 +52,7 @@ public class ReplayModRecording implements Module {
     @Override
     public void initClient() {
         connectionEventHandler = new ConnectionEventHandler(LOGGER, core);
+        ProductionReplaySessionController.getInstance().initialize(core);
 
         new GuiHandler(core).register();
     }
@@ -59,8 +61,19 @@ public class ReplayModRecording implements Module {
         Channel channel = ((NetworkManagerAccessor) networkManager).getChannel();
         if (channel.pipeline().get(ReplayHandler.PACKET_HANDLER_NAME) != null) return;
         if (channel.hasAttr(ATTR_CHECKED)) return;
+        ProductionReplaySessionController sessionController = ProductionReplaySessionController.getInstance();
+        if (!sessionController.claimRecordingArm(networkManager)) {
+            return;
+        }
+        PacketListener previousListener = connectionEventHandler.getPacketListener();
+        if (previousListener != null) {
+            LOGGER.info("Finalizing previous recorder before installing its native Transfer successor");
+            previousListener.finishRecording(false);
+            connectionEventHandler.reset();
+        }
         channel.attr(ATTR_CHECKED).set(null);
-        connectionEventHandler.onConnectedToServerEvent(networkManager);
+        PacketListener listener = connectionEventHandler.onConnectedToServerEvent(networkManager, true, false);
+        sessionController.onRecorderInstalled(listener);
     }
 
     public ConnectionEventHandler getConnectionEventHandler() {

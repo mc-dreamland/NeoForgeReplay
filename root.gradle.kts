@@ -12,23 +12,27 @@ plugins {
 
 val latestVersion = file("version.txt").readLines().first()
 var releaseCommit = providers.exec {
+    workingDir(rootDir)
     commandLine("git", "blame", "-p", "-l", "version.txt")
 }.standardOutput.asText.map { it.trim().split("/n").first().split(" ").first() }.get()
 if (latestVersion == "2.1.0") { // First version since change from tag-based
     releaseCommit = "35ac26e91689ac9bdf12dbb9902c452464a75108" // git rev-parse 1.12.2-2.1.0
 }
 val currentCommit = providers.exec {
+    workingDir(rootDir)
     commandLine("git", "rev-parse", "HEAD")
 }.standardOutput.asText.map { it.trim().split("/n").first() }.get()
 if (releaseCommit == currentCommit) {
     version = latestVersion
 } else {
     val diff = providers.exec {
+        workingDir(rootDir)
         commandLine("git", "log", "--format=oneline", "$releaseCommit..$currentCommit")
     }.standardOutput.asText.map { it.trim().split("/n").size }.get()
     version = "$latestVersion-$diff-g${currentCommit.substring(0, 7)}"
 }
 val dirty = providers.exec {
+    workingDir(rootDir)
     commandLine("git", "status", "--porcelain", "--ignore-submodules=all")
 }.standardOutput.asText.map { it.isNotBlank() }.get()
 if (dirty) {

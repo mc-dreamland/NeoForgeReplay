@@ -62,7 +62,12 @@ public class ConnectionEventHandler {
         this.core = core;
     }
 
-    public void onConnectedToServerEvent(ClientConnection networkManager) {
+    public PacketListener onConnectedToServerEvent(ClientConnection networkManager) {
+        return onConnectedToServerEvent(networkManager, null, true);
+    }
+
+    public PacketListener onConnectedToServerEvent(ClientConnection networkManager, Boolean forcedAutoStart,
+                                                    boolean installRecordingControls) {
         try {
             boolean local = networkManager.isLocal();
             if (local) {
@@ -77,17 +82,18 @@ public class ConnectionEventHandler {
                 //#endif
                 //#endif
                     logger.info("Debug World recording is not supported.");
-                    return;
+                    return null;
                 }
                 //#endif
                 if(!core.getSettingsRegistry().get(Setting.RECORD_SINGLEPLAYER)) {
                     logger.info("Singleplayer Recording is disabled");
-                    return;
+                    return null;
                 }
             } else {
-                if(!core.getSettingsRegistry().get(Setting.RECORD_SERVER)) {
+                if(!Boolean.TRUE.equals(forcedAutoStart)
+                        && !core.getSettingsRegistry().get(Setting.RECORD_SERVER)) {
                     logger.info("Multiplayer Recording is disabled");
-                    return;
+                    return null;
                 }
             }
 
@@ -102,7 +108,9 @@ public class ConnectionEventHandler {
 
             String worldName;
             String serverName = null;
-            boolean autoStart = core.getSettingsRegistry().get(Setting.AUTO_START_RECORDING);
+            boolean autoStart = forcedAutoStart != null
+                    ? forcedAutoStart
+                    : core.getSettingsRegistry().get(Setting.AUTO_START_RECORDING);
             if (local) {
                 //#if MC>=11600
                 worldName = getMinecraft().getServer().getSaveProperties().getLevelName();
@@ -125,13 +133,15 @@ public class ConnectionEventHandler {
                     serverName = serverInfo.name;
                 }
 
-                Boolean autoStartServer = ServerInfoExt.from(serverInfo).getAutoRecording();
-                if (autoStartServer != null) {
-                    autoStart = autoStartServer;
+                if (forcedAutoStart == null) {
+                    Boolean autoStartServer = ServerInfoExt.from(serverInfo).getAutoRecording();
+                    if (autoStartServer != null) {
+                        autoStart = autoStartServer;
+                    }
                 }
             } else {
                 logger.info("Recording not started as the world is neither local nor remote (probably a replay).");
-                return;
+                return null;
             }
 
             if (ReplayMod.isMinimalMode()) {
@@ -175,10 +185,13 @@ public class ConnectionEventHandler {
             recordingEventHandler = new RecordingEventHandler(packetListener);
             recordingEventHandler.register();
 
-            guiControls = new GuiRecordingControls(core, packetListener, autoStart);
-            guiControls.register();
-
-            guiOverlay = new GuiRecordingOverlay(getMinecraft(), core.getSettingsRegistry(), guiControls);
+            if (installRecordingControls) {
+                guiControls = new GuiRecordingControls(core, packetListener, autoStart);
+                guiControls.register();
+            }
+            guiOverlay = guiControls == null
+                    ? new GuiRecordingOverlay(getMinecraft(), core.getSettingsRegistry())
+                    : new GuiRecordingOverlay(getMinecraft(), core.getSettingsRegistry(), guiControls);
             guiOverlay.register();
 
             if (autoStart) {
@@ -186,19 +199,30 @@ public class ConnectionEventHandler {
             } else {
                 packetListener.addMarker(MarkerProcessor.MARKER_NAME_START_CUT, 0);
             }
+            return packetListener;
         } catch (Throwable e) {
-            e.printStackTrace();
+            logger.error("Failed to install ReplayMod recorder", e);
+            if (packetListener != null) {
+                packetListener.finishRecording(false);
+            }
             core.printWarningToChat("replaymod.chat.recordingfailed");
+            return null;
         }
     }
 
     public void reset() {
         if (packetListener != null) {
-            guiControls.unregister();
+            if (guiControls != null) {
+                guiControls.unregister();
+            }
             guiControls = null;
-            guiOverlay.unregister();
+            if (guiOverlay != null) {
+                guiOverlay.unregister();
+            }
             guiOverlay = null;
-            recordingEventHandler.unregister();
+            if (recordingEventHandler != null) {
+                recordingEventHandler.unregister();
+            }
             recordingEventHandler = null;
             packetListener = null;
         }

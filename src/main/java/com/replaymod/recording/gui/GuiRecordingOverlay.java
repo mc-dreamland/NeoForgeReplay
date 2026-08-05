@@ -28,6 +28,10 @@ public class GuiRecordingOverlay extends EventRegistrations {
     private final SettingsRegistry settingsRegistry;
     private final GuiRecordingControls guiControls;
 
+    public GuiRecordingOverlay(MinecraftClient mc, SettingsRegistry settingsRegistry) {
+        this(mc, settingsRegistry, null);
+    }
+
     public GuiRecordingOverlay(MinecraftClient mc, SettingsRegistry settingsRegistry, GuiRecordingControls guiControls) {
         this.mc = mc;
         this.settingsRegistry = settingsRegistry;
@@ -43,10 +47,12 @@ public class GuiRecordingOverlay extends EventRegistrations {
     //#else
     private void renderRecordingIndicator(MatrixStack stack) {
     //#endif
-        if (guiControls.isStopped()) return;
+        if (guiControls != null && guiControls.isStopped()) return;
         if (settingsRegistry.get(Setting.INDICATOR)) {
             TextRenderer fontRenderer = mc.textRenderer;
-            String text = guiControls.isPaused() ? I18n.translate("replaymod.gui.paused") : I18n.translate("replaymod.gui.recording");
+            String text = guiControls != null && guiControls.isPaused()
+                    ? I18n.translate("replaymod.gui.paused")
+                    : I18n.translate("replaymod.gui.recording");
             MinecraftGuiRenderer renderer = new MinecraftGuiRenderer(stack);
             renderer.drawString(30, 18 - (fontRenderer.fontHeight / 2), 0xffffffff, text.toUpperCase());
             renderer.bindTexture(TEXTURE);

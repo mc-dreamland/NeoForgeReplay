@@ -10,6 +10,8 @@ import de.johni0702.minecraft.gui.utils.lwjgl.Point;
 import de.johni0702.minecraft.gui.versions.callbacks.InitScreenCallback;
 import com.replaymod.replay.ReplayModReplay;
 import com.replaymod.replay.gui.screen.GuiReplayViewer;
+import com.replaymod.replay.production.ProductionReplaySessionController;
+import com.replaymod.replay.production.ReplaySessionState;
 import net.minecraft.client.gui.screen.GameMenuScreen;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
@@ -55,6 +57,8 @@ import static com.replaymod.replay.ReplayModReplay.LOGGER;
 public class GuiHandler extends EventRegistrations {
     private static final int BUTTON_REPLAY_VIEWER = 17890234;
     private static final int BUTTON_EXIT_REPLAY = 17890235;
+    private static final int BUTTON_RECORDING = 17890236;
+    private static final int BUTTON_INGAME_REPLAY_VIEWER = 17890237;
 
     private final ReplayModReplay mod;
 
@@ -178,7 +182,42 @@ public class GuiHandler extends EventRegistrations {
             //$$             -24);
             //$$ }
             //#endif
+        } else {
+            injectProductionServerControls(guiScreen, buttonList);
         }
+    }
+
+    private void injectProductionServerControls(Screen guiScreen, Collection<ClickableWidget> buttonList) {
+        ProductionReplaySessionController controller = ProductionReplaySessionController.getInstance();
+        if (!controller.isLiveServer()) {
+            return;
+        }
+
+        ClickableWidget disconnect = findButton(buttonList, "menu.disconnect", 1).orElse(null);
+        int x = guiScreen.width / 2 - 100;
+        int y = guiScreen.height / 4 + 120 - 16;
+        if (disconnect != null) {
+            x = disconnect.getX();
+            y = disconnect.getY();
+            disconnect.setY(y + 24);
+        }
+
+        ReplaySessionState state = controller.getState();
+        String recordingLabel = state == ReplaySessionState.LIVE_RECORDING
+                ? "replaymod.production.stop_recording"
+                : "replaymod.production.start_recording";
+        InjectedButton recordingButton = new InjectedButton(
+                guiScreen, BUTTON_RECORDING, x, y, 98, 20,
+                recordingLabel, null, this::onButton);
+        recordingButton.active = state == ReplaySessionState.LIVE_UNARMED
+                || state == ReplaySessionState.LIVE_RECORDING;
+
+        InjectedButton replayViewerButton = new InjectedButton(
+                guiScreen, BUTTON_INGAME_REPLAY_VIEWER, x + 102, y, 98, 20,
+                "replaymod.production.replay_center", null, this::onButton);
+        replayViewerButton.active = controller.canOpenReplayCenter();
+        buttonList.add(recordingButton);
+        buttonList.add(replayViewerButton);
     }
 
     /**
@@ -515,14 +554,29 @@ public class GuiHandler extends EventRegistrations {
             }
         }
 
-        if (guiScreen instanceof GameMenuScreen && mod.getReplayHandler() != null) {
-            if (button.id == BUTTON_EXIT_REPLAY) {
+        if (guiScreen instanceof GameMenuScreen) {
+            ProductionReplaySessionController controller = ProductionReplaySessionController.getInstance();
+            if (button.id == BUTTON_EXIT_REPLAY && mod.getReplayHandler() != null) {
                 button.active = false;
-                try {
-                    mod.getReplayHandler().endReplay();
-                } catch (IOException e) {
-                    e.printStackTrace();
+                if (controller.isManagedReplaySession()) {
+                    controller.requestExitReplay();
+                } else {
+                    try {
+                        mod.getReplayHandler().endReplay();
+                    } catch (IOException e) {
+                        LOGGER.error("Failed to close replay", e);
+                    }
                 }
+            } else if (button.id == BUTTON_RECORDING && mod.getReplayHandler() == null) {
+                button.active = false;
+                if (controller.getState() == ReplaySessionState.LIVE_RECORDING) {
+                    controller.requestStopRecording();
+                    guiScreen.close();
+                } else {
+                    controller.requestStartRecording();
+                }
+            } else if (button.id == BUTTON_INGAME_REPLAY_VIEWER && mod.getReplayHandler() == null) {
+                new GuiReplayViewer(mod).display();
             }
         }
     }
