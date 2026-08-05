@@ -50,6 +50,10 @@ import java.util.*;
 import net.minecraft.client.gui.screen.DownloadingTerrainScreen;
 //#endif
 
+//#if MC==12108 && FABRIC<=0
+//$$ import net.minecraft.network.packet.Packet;
+//#endif
+
 //#if MC>=12106
 //$$ import com.replaymod.render.mixin.GameRendererAccessor;
 //$$ import net.minecraft.client.gui.render.state.GuiRenderState;
@@ -351,7 +355,6 @@ public class ReplayHandler {
         //$$ channel.pipeline().removeLast();
         //#endif
         channel.pipeline().addFirst("ReplayModReplay_head", new DropOutboundMessagesHandler());
-
         quickReplaySender.setChannel(channel);
         fullReplaySender.setChannel(channel);
 
@@ -374,6 +377,9 @@ public class ReplayHandler {
         //#endif
         channel.pipeline().addLast(PACKET_HANDLER_NAME, quickMode ? quickReplaySender : fullReplaySender);
         channel.pipeline().addLast("packet_handler", networkManager);
+        //#if MC==12108 && FABRIC<=0
+        //$$ channel.pipeline().addLast("ReplayModReplay_packet_drop", new DropNonTerminalPacketsHandler());
+        //#endif
         channel.pipeline().fireChannelActive();
 
         // MC usually transitions from handshake to login via the packets it sends.
@@ -983,4 +989,17 @@ public class ReplayHandler {
             // See write method above
         }
     }
+
+    //#if MC==12108 && FABRIC<=0
+    //$$ private static class DropNonTerminalPacketsHandler extends ChannelOutboundHandlerAdapter {
+    //$$     @Override
+    //$$     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
+    //$$         if (msg instanceof Packet<?> packet && !packet.transitionsNetworkState()) {
+    //$$             promise.setSuccess();
+    //$$             return;
+    //$$         }
+    //$$         ctx.write(msg, promise);
+    //$$     }
+    //$$ }
+    //#endif
 }
