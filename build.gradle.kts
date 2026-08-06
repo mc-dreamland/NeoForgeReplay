@@ -2,6 +2,7 @@ import com.replaymod.gradle.preprocess.PreprocessTask
 import gg.essential.gradle.util.*
 import net.fabricmc.loom.task.RemapJarTask
 import org.gradle.api.attributes.java.TargetJvmVersion
+import org.gradle.api.tasks.testing.Test
 
 plugins {
     java
@@ -22,6 +23,14 @@ if (mcVersion >= 26_01_00) {
         attributes {
             attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, javaVersion)
         }
+    }
+}
+
+tasks.withType<Test>().configureEach {
+    val isolatedWorkingDir = layout.buildDirectory.dir("test-run")
+    workingDir(isolatedWorkingDir)
+    doFirst {
+        isolatedWorkingDir.get().asFile.mkdirs()
     }
 }
 
