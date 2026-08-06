@@ -75,6 +75,11 @@ import net.minecraft.network.packet.s2c.play.ExperienceOrbSpawnS2CPacket;
 //$$ import net.minecraft.network.packet.s2c.common.ServerTransferS2CPacket;
 //#endif
 
+//#if MC>=12106
+//$$ import net.minecraft.network.packet.s2c.common.ClearDialogS2CPacket;
+//$$ import net.minecraft.network.packet.s2c.common.ShowDialogS2CPacket;
+//#endif
+
 //#if MC>=12002
 //$$ import net.minecraft.network.packet.s2c.config.ReadyS2CPacket;
 //$$ import net.minecraft.network.packet.s2c.play.CommonPlayerSpawnInfo;
@@ -192,6 +197,10 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
             LoginHelloS2CPacket.class, // workaround for an issue where ReplayMod prior to 2.6.20 would record these
             //#if MC>=12005
             //$$ ServerTransferS2CPacket.class,
+            //#endif
+            //#if MC>=12106
+            //$$ ShowDialogS2CPacket.class,
+            //$$ ClearDialogS2CPacket.class,
             //#endif
             //#if MC>=11404
             PlayerActionResponseS2CPacket.class,
