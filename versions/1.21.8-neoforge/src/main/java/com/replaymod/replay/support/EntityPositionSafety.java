@@ -1,9 +1,9 @@
-package com.replaymod.replay.mixin;
+package com.replaymod.replay.support;
 
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 
-final class EntityPositionSafety {
+public final class EntityPositionSafety {
     private static final double MIN_HORIZONTAL_POSITION = -30_000_000.0;
     private static final double MAX_HORIZONTAL_POSITION = 30_000_000.0;
     private static final int MIN_HORIZONTAL_SECTION = -(1 << 21);
@@ -18,7 +18,7 @@ final class EntityPositionSafety {
     private EntityPositionSafety() {
     }
 
-    static boolean isSafe(Vec3d position, Box bounds) {
+    public static boolean isSafe(Vec3d position, Box bounds) {
         return isSafe(
                 position.x,
                 position.y,
@@ -32,7 +32,7 @@ final class EntityPositionSafety {
         );
     }
 
-    static boolean isSafe(
+    public static boolean isSafe(
             double x,
             double y,
             double z,

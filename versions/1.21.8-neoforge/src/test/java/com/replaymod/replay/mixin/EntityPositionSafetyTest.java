@@ -1,5 +1,6 @@
 package com.replaymod.replay.mixin;
 
+import com.replaymod.replay.support.EntityPositionSafety;
 import org.junit.Test;
 
 import static org.junit.Assert.assertFalse;

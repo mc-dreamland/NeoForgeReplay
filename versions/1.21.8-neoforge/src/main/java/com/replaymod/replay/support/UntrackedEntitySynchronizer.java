@@ -1,10 +1,10 @@
-package com.replaymod.replay.mixin;
+package com.replaymod.replay.support;
 
-final class UntrackedEntitySynchronizer {
+public final class UntrackedEntitySynchronizer {
     private UntrackedEntitySynchronizer() {
     }
 
-    static <E, P> void afterPositionUpdate(E entity, Access<E, P> access) {
+    public static <E, P> void afterPositionUpdate(E entity, Access<E, P> access) {
         if (entity == null) {
             return;
         }
@@ -25,7 +25,7 @@ final class UntrackedEntitySynchronizer {
         synchronizePassengerHierarchy(entity, access);
     }
 
-    static <E, P> void afterPassengersUpdate(E vehicle, Access<E, P> access) {
+    public static <E, P> void afterPassengersUpdate(E vehicle, Access<E, P> access) {
         // Preserve the old workaround's immediate vehicle update, but finish only an already queued interpolation
         // target. afterPositionUpdate also places the complete passenger hierarchy without behaviour ticks.
         afterPositionUpdate(vehicle, access);
@@ -51,7 +51,7 @@ final class UntrackedEntitySynchronizer {
         }
     }
 
-    interface Access<E, P> {
+    public interface Access<E, P> {
         boolean isTracked(E entity);
 
         boolean isLocallyControlled(E entity);
@@ -73,12 +73,12 @@ final class UntrackedEntitySynchronizer {
         void setPosition(E entity, P position);
     }
 
-    static final class Target<P> {
-        final P position;
-        final float yaw;
-        final float pitch;
+    public static final class Target<P> {
+        public final P position;
+        public final float yaw;
+        public final float pitch;
 
-        Target(P position, float yaw, float pitch) {
+        public Target(P position, float yaw, float pitch) {
             this.position = position;
             this.yaw = yaw;
             this.pitch = pitch;

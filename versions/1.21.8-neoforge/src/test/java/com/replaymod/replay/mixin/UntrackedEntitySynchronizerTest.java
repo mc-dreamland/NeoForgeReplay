@@ -1,15 +1,26 @@
 package com.replaymod.replay.mixin;
 
+import com.replaymod.replay.support.ClientEntitySynchronizationAccess;
+import com.replaymod.replay.support.EntityPositionSafety;
+import com.replaymod.replay.support.UntrackedEntitySynchronizer;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 
 public class UntrackedEntitySynchronizerTest {
     private final FakeAccess access = new FakeAccess();
+
+    @Test
+    public void runtimeSupportTypesStayOutsideTheConfiguredMixinPackage() {
+        assertOutsideMixinPackage(ClientEntitySynchronizationAccess.class);
+        assertOutsideMixinPackage(UntrackedEntitySynchronizer.class);
+        assertOutsideMixinPackage(EntityPositionSafety.class);
+    }
 
     @Test
     public void normalPassengerPacketLeavesTrackedEntitiesToVanilla() {
@@ -146,6 +157,13 @@ public class UntrackedEntitySynchronizerTest {
 
     private static Position position(double x, double y, double z) {
         return new Position(x, y, z);
+    }
+
+    private static void assertOutsideMixinPackage(Class<?> type) {
+        String configuredMixinPackage = "com.replaymod.replay.mixin";
+        String typePackage = type.getPackage().getName();
+        assertFalse(typePackage.equals(configuredMixinPackage));
+        assertFalse(typePackage.startsWith(configuredMixinPackage + "."));
     }
 
     private static final class FakeAccess implements UntrackedEntitySynchronizer.Access<FakeEntity, Position> {
