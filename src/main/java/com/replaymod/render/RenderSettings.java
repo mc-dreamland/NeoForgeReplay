@@ -314,15 +314,30 @@ public class RenderSettings {
     }
 
     private static String findFFmpeg() {
+        File dotMinecraft = MCVer.getMinecraft().runDirectory;
+        boolean windows = Util.getOperatingSystem() == Util.OperatingSystem.WINDOWS;
+        String executableName = windows ? "ffmpeg.exe" : "ffmpeg";
+        File inDotMinecraft = new File(dotMinecraft, "ffmpeg/bin/" + executableName);
+
+        // QA hook: while this marker file exists, ReplayMod pretends there is no
+        // system FFmpeg and only accepts the copy installed by the in-game downloader.
+        if (new File(dotMinecraft, "config/replaymod-ffmpeg-missing.test").isFile()) {
+            if (inDotMinecraft.exists()) {
+                LOGGER.debug("Test mode: FFmpeg found in .minecraft/ffmpeg");
+                return inDotMinecraft.getAbsolutePath();
+            }
+            LOGGER.debug("Test mode: pretending FFmpeg is missing");
+            return new File(dotMinecraft, "ffmpeg/bin/" + executableName + ".test-missing").getAbsolutePath();
+        }
+
+        // First check the location used by ReplayMod's in-game downloader/installer.
+        if (inDotMinecraft.exists()) {
+            LOGGER.debug("FFmpeg found in .minecraft/ffmpeg");
+            return inDotMinecraft.getAbsolutePath();
+        }
+
         switch (Util.getOperatingSystem()) {
             case WINDOWS:
-                // Allow windows users to unpack the ffmpeg archive into a sub-folder of their .minecraft folder
-                File dotMinecraft = MCVer.getMinecraft().runDirectory;
-                File inDotMinecraft = new File(dotMinecraft, "ffmpeg/bin/ffmpeg.exe");
-                if (inDotMinecraft.exists()) {
-                    LOGGER.debug("FFmpeg found in .minecraft/ffmpeg");
-                    return inDotMinecraft.getAbsolutePath();
-                }
                 // But a significant amount of people are not even able to follow instruction to do that.
                 // Instead they'll regularly put it at `.minecraft/ffmpeg-version/bin/ffmpeg.exe`
                 // or `.minecraft/ffmpeg/ffmpeg-version/bin/ffmpeg.exe`
