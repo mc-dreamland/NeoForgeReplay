@@ -109,6 +109,12 @@ final class ReplayResourcePackController implements AutoCloseable {
             LOGGER.info("Replay resource pack generation={} decision=fallback state={}", generation, state);
             return false;
         }
+        if (confirmed.entries().isEmpty()) {
+            // A rebuild can only preserve/deduplicate packs that are already active. Before the
+            // first load there is nothing to keep, so pushes must load immediately (first entry).
+            LOGGER.debug("Replay resource pack generation={} decision=no-op reason=empty-confirmed", generation);
+            return false;
+        }
         shadow = PackStack.empty();
         state = State.REBUILDING;
         LOGGER.debug("Replay resource pack generation={} decision=rebuild oldStack={}",

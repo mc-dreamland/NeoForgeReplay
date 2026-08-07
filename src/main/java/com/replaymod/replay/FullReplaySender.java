@@ -292,6 +292,14 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
      */
     protected boolean startFromBeginning = true;
 
+    //#if MC==12108 && FABRIC<=0
+    //$$ /**
+    //$$  * Whether the replay has completed its initial setup restart. The first start is a fresh
+    //$$  * replay (resource packs must load once), only later restarts are resource pack rebuilds.
+    //$$  */
+    //$$ private boolean initialStartCompleted = false;
+    //#endif
+
     /**
      * Whether to terminate the replay. This only has an effect on the async mode and is {@code true} during sync mode.
      */
@@ -1118,7 +1126,9 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
 
                                 if (startFromBeginning) {
                                     //#if MC==12108 && FABRIC<=0
-                                    //$$ replayHandler.beginResourcePackRebuild();
+                                    //$$ if (initialStartCompleted) {
+                                    //$$     replayHandler.beginResourcePackRebuild();
+                                    //$$ }
                                     //#endif
                                     // In case we need to restart from the beginning
                                     // break out of the loop sending all packets which will
@@ -1201,6 +1211,9 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
                         lastTimeStamp = 0;
                         registry = getPacketTypeRegistry(State.LOGIN);
                         startFromBeginning = false;
+                        //#if MC==12108 && FABRIC<=0
+                        //$$ initialStartCompleted = true;
+                        //#endif
                         nextPacket = null;
                         realTimeStart = System.currentTimeMillis();
                         if (replayIn != null) {

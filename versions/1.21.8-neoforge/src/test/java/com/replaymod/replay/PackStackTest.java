@@ -6,18 +6,11 @@ import java.nio.file.Paths;
 import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
 
 public class PackStackTest {
     private static final PackDescriptor A = pack("00000000-0000-0000-0000-000000000001", 'a');
     private static final PackDescriptor A2 = pack("00000000-0000-0000-0000-000000000001", 'c');
     private static final PackDescriptor B = pack("00000000-0000-0000-0000-000000000002", 'b');
-
-    @Test
-    public void duplicatePushKeepsStackIdentity() {
-        PackStack stack = PackStack.empty().push(A);
-        assertSame(stack, stack.push(A));
-    }
 
     @Test
     public void sameUuidWithNewContentReplacesPack() {

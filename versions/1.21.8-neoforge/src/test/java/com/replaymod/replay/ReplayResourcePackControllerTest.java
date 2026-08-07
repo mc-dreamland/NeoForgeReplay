@@ -95,6 +95,24 @@ public class ReplayResourcePackControllerTest {
     }
 
     @Test
+    public void beginRebuildOnEmptyConfirmedDoesNotSuppressLoad() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        ReplayResourcePackController controller = controller(runtime);
+
+        // Mirrors the initial replay entry: the sender may begin a "rebuild" before any pack has
+        // ever been confirmed. With nothing to preserve, pushes must load immediately instead of
+        // being collected into a shadow stack that never reconciles.
+        assertFalse(controller.beginRebuild());
+        assertTrue(controller.handlePush(A, "replay://7"));
+        assertEquals(1, runtime.batches.size());
+
+        runtime.succeed(0);
+        assertEquals(ReplayResourcePackController.State.CONFIRMED, controller.state());
+        assertEquals(1, controller.confirmedStack().entries().size());
+        controller.close();
+    }
+
+    @Test
     public void removeOnlyBatchWaitsForCompletion() throws Exception {
         FakeRuntime runtime = new FakeRuntime();
         ReplayResourcePackController controller = controller(runtime);
