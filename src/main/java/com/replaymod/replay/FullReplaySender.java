@@ -163,6 +163,9 @@ import net.minecraft.network.packet.s2c.play.UnloadChunkS2CPacket;
 
 //#if MC>=10800
 import net.minecraft.network.packet.s2c.play.ResourcePackSendS2CPacket;
+//#if MC==12108 && FABRIC<=0
+//$$ import net.minecraft.network.packet.s2c.common.ResourcePackRemoveS2CPacket;
+//#endif
 import net.minecraft.network.packet.s2c.play.SetCameraEntityS2CPacket;
 import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
 //#else
@@ -664,12 +667,26 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
         //#if MC>=10800
         }
 
+        //#if MC==12108 && FABRIC<=0
+        //$$ if (p instanceof ResourcePackRemoveS2CPacket) {
+        //$$     ResourcePackRemoveS2CPacket packet = (ResourcePackRemoveS2CPacket) p;
+        //$$     if (replayHandler.handleResourcePackPop(packet.id())) {
+        //$$         return null;
+        //$$     }
+        //$$ }
+        //#endif
+
         if(p instanceof ResourcePackSendS2CPacket) {
             ResourcePackSendS2CPacket packet = (ResourcePackSendS2CPacket) p;
             //#if MC>=12003
             //$$ String url = packet.url();
             //#else
             String url = packet.getURL();
+            //#endif
+            //#if MC==12108 && FABRIC<=0
+            //$$ if (replayHandler.handleResourcePackPush(packet.id(), url)) {
+            //$$     return null;
+            //$$ }
             //#endif
             if (url.startsWith("replay://")) {
         //#else
@@ -1100,6 +1117,9 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
                                 }
 
                                 if (startFromBeginning) {
+                                    //#if MC==12108 && FABRIC<=0
+                                    //$$ replayHandler.beginResourcePackRebuild();
+                                    //#endif
                                     // In case we need to restart from the beginning
                                     // break out of the loop sending all packets which will
                                     // cause the replay to be restarted by the outer loop
@@ -1147,6 +1167,9 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
                                 // We need to check that we aren't planing to restart so we don't accidentally run this
                                 // code before we actually restarted
                                 if (isHurrying() && lastTimeStamp > desiredTimeStamp && !startFromBeginning) {
+                                    //#if MC==12108 && FABRIC<=0
+                                    //$$ replayHandler.finishResourcePackRebuild();
+                                    //#endif
                                     desiredTimeStamp = -1;
 
                                     replayHandler.moveCameraToTargetPosition();
@@ -1306,6 +1329,9 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
                     return;
                 }
                 if (timestamp < lastTimeStamp) { // Restart the replay if we need to go backwards in time
+                    //#if MC==12108 && FABRIC<=0
+                    //$$ replayHandler.beginResourcePackRebuild();
+                    //#endif
                     hasWorldLoaded = false;
                     inBundle = false;
                     lastTimeStamp = 0;
@@ -1366,6 +1392,9 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
                     }
                 }
 
+                //#if MC==12108 && FABRIC<=0
+                //$$ replayHandler.finishResourcePackRebuild();
+                //#endif
                 // This might be required if we change to async mode anytime soon
                 realTimeStart = System.currentTimeMillis() - (long) (timestamp / replaySpeed);
                 lastTimeStamp = timestamp;

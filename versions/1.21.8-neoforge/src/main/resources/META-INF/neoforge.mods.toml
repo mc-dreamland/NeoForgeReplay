@@ -36,6 +36,8 @@ issueTrackerURL = "https://github.com/ReplayMod/ReplayMod/issues"
 [[mixins]]
     config = "mixins.replay.replaymod.json"
 [[mixins]]
+    config = "mixins.resourcepack.replaymod.json"
+[[mixins]]
     config = "mixins.render.blend.replaymod.json"
 [[mixins]]
     config = "mixins.extras.playeroverview.replaymod.json"

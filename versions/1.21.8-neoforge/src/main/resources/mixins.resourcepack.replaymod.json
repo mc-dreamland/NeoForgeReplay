@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "com.replaymod.replay.resourcepack.mixin",
+  "client": [
+    "MixinServerResourcePackLoaderReplay",
+    "MixinServerResourcePackReloadCallbacks"
+  ],
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "refmap": "mixins.replaymod.refmap.json"
+}

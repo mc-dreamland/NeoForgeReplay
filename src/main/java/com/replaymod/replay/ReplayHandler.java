@@ -163,6 +163,10 @@ public class ReplayHandler {
      */
     private final ReplayFile replayFile;
 
+    //#if MC==12108 && FABRIC<=0
+    //$$ private final ReplayResourcePackController resourcePackController;
+    //#endif
+
     /**
      * Decodes and sends packets into channel.
      */
@@ -207,6 +211,11 @@ public class ReplayHandler {
 
         markers = replayFile.getMarkers().or(Collections.emptySet());
 
+        //#if MC==12108 && FABRIC<=0
+        //$$ boolean reuseReplayResourcePacks = ReplayModReplay.instance.getCore().getSettingsRegistry()
+        //$$         .get(Setting.REUSE_REPLAY_RESOURCE_PACKS);
+        //$$ resourcePackController = ReplayResourcePackController.create(replayFile, reuseReplayResourcePacks);
+        //#endif
         fullReplaySender = new FullReplaySender(this, replayFile);
         //#if MC>=10800
         quickReplaySender = new QuickReplaySender(ReplayModReplay.instance, replayFile);
@@ -234,7 +243,10 @@ public class ReplayHandler {
         //#endif
 
         // Force re-creation of camera entity by unloading the previous world
-        //#if MC>=12106
+        //#if MC==12108 && FABRIC<=0
+        //$$ ReplayResourcePackLifecycle.disconnectForInternalRestart(
+        //$$         mc, resourcePackController.preservesPacksDuringRestart());
+        //#elseif MC>=12106
         //$$ mc.disconnectWithProgressScreen();
         //#elseif MC>=11400
         mc.disconnect();
@@ -287,6 +299,10 @@ public class ReplayHandler {
             //$$ mc.loadWorld(null);
             //#endif
         }
+
+        //#if MC==12108 && FABRIC<=0
+        //$$ resourcePackController.close();
+        //#endif
 
         TimerAccessor timer = (TimerAccessor) ((MinecraftAccessor) mc).getTimer();
         //#if MC>=11200
@@ -428,6 +444,24 @@ public class ReplayHandler {
     public ReplayFile getReplayFile() {
         return replayFile;
     }
+
+    //#if MC==12108 && FABRIC<=0
+    //$$ boolean handleResourcePackPush(UUID id, String url) {
+    //$$     return resourcePackController.handlePush(id, url);
+    //$$ }
+    //$$
+    //$$ boolean handleResourcePackPop(Optional<UUID> id) {
+    //$$     return resourcePackController.handlePop(id);
+    //$$ }
+    //$$
+    //$$ void beginResourcePackRebuild() {
+    //$$     resourcePackController.beginRebuild();
+    //$$ }
+    //$$
+    //$$ void finishResourcePackRebuild() {
+    //$$     resourcePackController.finishRebuild();
+    //$$ }
+    //#endif
 
     public Restrictions getRestrictions() {
         return restrictions;
