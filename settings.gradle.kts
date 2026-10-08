@@ -111,27 +111,19 @@ val allReplayModVersions = listOf(
 )
 
 val targetVersion = providers.gradleProperty("replaymod.targetVersion").orNull
-val mc1218PreprocessChain = listOf(
+val mc12110NeoForgePreprocessChain = listOf(
     "1.16.4", "1.17.1", "1.18.1", "1.18.2", "1.19", "1.19.1", "1.19.2", "1.19.3", "1.19.4",
     "1.20.1", "1.20.2", "1.20.4", "1.20.6", "1.21", "1.21.2", "1.21.4", "1.21.5", "1.21.7",
-    "1.21.8-neoforge",
+    "1.21.10", "1.21.10-neoforge",
 )
-val replayModVersions = if (targetVersion == null) {
-    allReplayModVersions
+val targetPreprocessChain = if (targetVersion == null) {
+    null
 } else {
     require(targetVersion in allReplayModVersions) { "Unsupported replaymod.targetVersion: $targetVersion" }
-    if (targetVersion == "1.21.8-neoforge") mc1218PreprocessChain else allReplayModVersions
+    if (targetVersion == "1.21.10-neoforge") mc12110NeoForgePreprocessChain else null
 }
-val jGuiVersions = if (targetVersion == null) {
-    allJGuiVersions
-} else {
-    val jGuiVersion = when (targetVersion) {
-        "1.10.2", "1.11", "1.11.2" -> "1.9.4"
-        "1.12.1", "1.12.2" -> "1.12"
-        else -> targetVersion
-    }
-    if (targetVersion == "1.21.8-neoforge") mc1218PreprocessChain else allJGuiVersions
-}
+val replayModVersions = targetPreprocessChain ?: allReplayModVersions
+val jGuiVersions = targetPreprocessChain ?: allJGuiVersions
 
 rootProject.buildFileName = "root.gradle.kts"
 

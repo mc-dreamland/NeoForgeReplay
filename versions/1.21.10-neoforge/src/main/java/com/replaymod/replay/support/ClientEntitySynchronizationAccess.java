@@ -15,7 +15,7 @@ public final class ClientEntitySynchronizationAccess
 
     @Override
     public boolean isTracked(Entity entity) {
-        return !(entity.getWorld() instanceof ClientWorld world) || world.getEntityById(entity.getId()) == entity;
+        return !(entity.getEntityWorld() instanceof ClientWorld world) || world.getEntityById(entity.getId()) == entity;
     }
 
     @Override
@@ -57,7 +57,7 @@ public final class ClientEntitySynchronizationAccess
 
     @Override
     public Vec3d position(Entity entity) {
-        return entity.getPos();
+        return entity.getEntityPos();
     }
 
     @Override

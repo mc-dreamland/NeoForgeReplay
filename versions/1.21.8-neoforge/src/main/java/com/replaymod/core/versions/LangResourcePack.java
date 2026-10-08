@@ -2,7 +2,6 @@ package com.replaymod.core.versions;
 
 import com.google.gson.Gson;
 import com.replaymod.core.ReplayMod;
-import net.minecraft.SharedConstants;
 import net.minecraft.resource.AbstractFileResourcePack;
 import net.minecraft.resource.ResourcePackInfo;
 import net.minecraft.resource.ResourcePackSource;
@@ -91,9 +90,7 @@ public class LangResourcePack extends AbstractFileResourcePack {
 
     private byte[] readFile(String path) throws IOException {
         if ("pack.mcmeta".equals(path)) {
-            int packFormat = SharedConstants.getGameVersion().packVersion(ResourceType.CLIENT_RESOURCES);
-            return ("{\"pack\": {\"description\": \"ReplayMod language files\", \"pack_format\": "
-                    + packFormat + "}}").getBytes(StandardCharsets.UTF_8);
+            return "{\"pack\": {\"description\": \"ReplayMod language files\", \"pack_format\": 34}}".getBytes(StandardCharsets.UTF_8);
         }
 
         Path langPath = langPath(path);

@@ -13,7 +13,7 @@ public final class Setting<T> extends SettingsRegistry.SettingKeys<T> {
             new SettingsRegistry.MultipleChoiceSettingKeys<>(
                     "replay", "camera", "replaymod.gui.settings.camera", "replaymod.camera.classic");
     public static final Setting<Boolean> LEGACY_MAIN_MENU_BUTTON = new Setting<>("legacyMainMenuButton", false);
-    //#if MC==12108 && FABRIC<=0
+    //#if MC==12110 && FABRIC<=0
     //$$ public static final Setting<Boolean> REUSE_REPLAY_RESOURCE_PACKS =
     //$$         new Setting<>("reuseReplayResourcePacks", true);
     //#endif

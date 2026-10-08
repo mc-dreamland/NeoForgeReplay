@@ -163,7 +163,7 @@ import net.minecraft.network.packet.s2c.play.UnloadChunkS2CPacket;
 
 //#if MC>=10800
 import net.minecraft.network.packet.s2c.play.ResourcePackSendS2CPacket;
-//#if MC==12108 && FABRIC<=0
+//#if MC==12110 && FABRIC<=0
 //$$ import net.minecraft.network.packet.s2c.common.ResourcePackRemoveS2CPacket;
 //#endif
 import net.minecraft.network.packet.s2c.play.SetCameraEntityS2CPacket;
@@ -292,7 +292,7 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
      */
     protected boolean startFromBeginning = true;
 
-    //#if MC==12108 && FABRIC<=0
+    //#if MC==12110 && FABRIC<=0
     //$$ /**
     //$$  * Whether the replay has completed its initial setup restart. The first start is a fresh
     //$$  * replay (resource packs must load once), only later restarts are resource pack rebuilds.
@@ -675,7 +675,7 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
         //#if MC>=10800
         }
 
-        //#if MC==12108 && FABRIC<=0
+        //#if MC==12110 && FABRIC<=0
         //$$ if (p instanceof ResourcePackRemoveS2CPacket) {
         //$$     ResourcePackRemoveS2CPacket packet = (ResourcePackRemoveS2CPacket) p;
         //$$     if (replayHandler.handleResourcePackPop(packet.id())) {
@@ -691,7 +691,7 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
             //#else
             String url = packet.getURL();
             //#endif
-            //#if MC==12108 && FABRIC<=0
+            //#if MC==12110 && FABRIC<=0
             //$$ if (replayHandler.handleResourcePackPush(packet.id(), url)) {
             //$$     return null;
             //$$ }
@@ -1125,7 +1125,7 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
                                 }
 
                                 if (startFromBeginning) {
-                                    //#if MC==12108 && FABRIC<=0
+                                    //#if MC==12110 && FABRIC<=0
                                     //$$ if (initialStartCompleted) {
                                     //$$     replayHandler.beginResourcePackRebuild();
                                     //$$ }
@@ -1177,7 +1177,7 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
                                 // We need to check that we aren't planing to restart so we don't accidentally run this
                                 // code before we actually restarted
                                 if (isHurrying() && lastTimeStamp > desiredTimeStamp && !startFromBeginning) {
-                                    //#if MC==12108 && FABRIC<=0
+                                    //#if MC==12110 && FABRIC<=0
                                     //$$ replayHandler.finishResourcePackRebuild();
                                     //#endif
                                     desiredTimeStamp = -1;
@@ -1211,7 +1211,7 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
                         lastTimeStamp = 0;
                         registry = getPacketTypeRegistry(State.LOGIN);
                         startFromBeginning = false;
-                        //#if MC==12108 && FABRIC<=0
+                        //#if MC==12110 && FABRIC<=0
                         //$$ initialStartCompleted = true;
                         //#endif
                         nextPacket = null;
@@ -1342,7 +1342,7 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
                     return;
                 }
                 if (timestamp < lastTimeStamp) { // Restart the replay if we need to go backwards in time
-                    //#if MC==12108 && FABRIC<=0
+                    //#if MC==12110 && FABRIC<=0
                     //$$ replayHandler.beginResourcePackRebuild();
                     //#endif
                     hasWorldLoaded = false;
@@ -1405,7 +1405,7 @@ public class FullReplaySender extends ChannelInboundHandlerAdapter implements Re
                     }
                 }
 
-                //#if MC==12108 && FABRIC<=0
+                //#if MC==12110 && FABRIC<=0
                 //$$ replayHandler.finishResourcePackRebuild();
                 //#endif
                 // This might be required if we change to async mode anytime soon

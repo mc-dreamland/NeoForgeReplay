@@ -20,7 +20,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class Mixin_ChromaKeyColorSky {
     //#if MC>=11800
     //$$ @Inject(
-            //#if MC>=12102
+            //#if MC==12110 && FABRIC<=0
+            //$$ // NeoForge patches the sky pass, so the vanilla lambda (method_62215) does not exist there
+            //$$ method = "lambda$addSkyPass$8(Lnet/minecraft/client/render/state/SkyRenderState;Lorg/joml/Matrix4f;Lcom/mojang/blaze3d/buffers/GpuBufferSlice;)V",
+            //#elseif MC>=12102
             //$$ method = "method_62215",
             //#elseif MC>=12005
             //$$ method = "renderSky(Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;FLnet/minecraft/client/render/Camera;ZLjava/lang/Runnable;)V",

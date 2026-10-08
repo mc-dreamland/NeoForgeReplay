@@ -12,7 +12,6 @@ import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import de.johni0702.minecraft.gui.function.Click;
 import de.johni0702.minecraft.gui.versions.callbacks.MouseCallback;
-import com.replaymod.replay.production.ProductionReplaySessionController;
 
 import java.util.ArrayList;
 
@@ -40,13 +39,11 @@ public class NeoForgeEventBridge {
     }
 
     private static void onClientTick(ClientTickEvent.Pre event) {
-        ProductionReplaySessionController.getInstance().tick();
         PreTickCallback.EVENT.invoker().preTick();
     }
 
     private static void onScreenOpening(ScreenEvent.Opening event) {
-        event.setNewScreen(ProductionReplaySessionController.getInstance().filterOpeningScreen(event.getNewScreen()));
-        OpenGuiScreenCallback.EVENT.invoker().openGuiScreen(event.getNewScreen());
+        OpenGuiScreenCallback.EVENT.invoker().openGuiScreen(event.getScreen());
     }
 
     private static void onRenderGui(RenderGuiEvent.Post event) {

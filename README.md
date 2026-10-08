@@ -9,6 +9,8 @@ For compiling 1.7.10, you must run `./gradlew :jGui:1.7.10:setupDecompWorkspace 
 ### No IDE
 You can build the mod by running `./gradlew build` (or just `./gradlew bundleJar`). You can then find the final jar files in `versions/$MCVERSION/build/libs/`.
 You can also build single versions by running `./gradlew :1.8:build` (or just `./gradlew :1.8:bundleJar`) (builds the MC 1.8 version).
+The primary target of this fork is NeoForge 1.21.10. Passing `-Preplaymod.targetVersion=1.21.10-neoforge` restricts the build to the preprocessing chain this target needs, which is much faster than configuring every version:
+`./gradlew -Preplaymod.targetVersion=1.21.10-neoforge :1.21.10-neoforge:bundleJar`
 
 ### IntelliJ
 Ensure you have at least IDEA 2020.1.

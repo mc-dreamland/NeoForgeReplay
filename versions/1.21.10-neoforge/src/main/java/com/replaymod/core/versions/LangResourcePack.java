@@ -2,6 +2,7 @@ package com.replaymod.core.versions;
 
 import com.google.gson.Gson;
 import com.replaymod.core.ReplayMod;
+import net.minecraft.SharedConstants;
 import net.minecraft.resource.AbstractFileResourcePack;
 import net.minecraft.resource.ResourcePackInfo;
 import net.minecraft.resource.ResourcePackSource;
@@ -9,14 +10,13 @@ import net.minecraft.resource.ResourceType;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.neoforged.fml.ModList;
+import net.neoforged.fml.jarcontents.JarContents;
 import org.apache.commons.io.IOUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,7 +29,6 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import static de.johni0702.minecraft.gui.versions.MCVer.identifier;
 
@@ -46,27 +45,21 @@ public class LangResourcePack extends AbstractFileResourcePack {
     public static final String LEGACY_KEY_PREFIX = "replaymod.input.";
     private static final String FABRIC_KEY_FORMAT = "key." + ReplayMod.MOD_ID + ".%s";
 
-    private final Path basePath;
+    private static final String LANG_DIR = "assets/" + ReplayMod.MOD_ID + "/lang";
+
+    // Read through FML's view of the mod file: its content roots are the jar files themselves in production,
+    // so resolving paths below them does not reach the jar's entries.
+    private final JarContents contents;
 
     public LangResourcePack() {
         super(new ResourcePackInfo(NAME, Text.literal("ReplayMod Translations"), ResourcePackSource.NONE, Optional.empty()));
-        this.basePath = ModList.get().getModFileById(ReplayMod.MOD_ID).getFile().getContents().getContentRoots().stream().findFirst().orElseThrow();
+        this.contents = ModList.get().getModFileById(ReplayMod.MOD_ID).getFile().getContents();
     }
 
-    private String langName(String path) {
+    private String langFile(String path) {
         Matcher matcher = JSON_FILE_PATTERN.matcher(path);
         if (!matcher.matches()) return null;
-        return String.format("%s_%s.lang", matcher.group(1), matcher.group(2).toUpperCase());
-    }
-
-    private Path baseLangPath() {
-        return basePath.resolve("assets").resolve(ReplayMod.MOD_ID).resolve("lang");
-    }
-
-    private Path langPath(String path) {
-        String langName = langName(path);
-        if (langName == null) return null;
-        return baseLangPath().resolve(langName);
+        return String.format("%s/%s_%s.lang", LANG_DIR, matcher.group(1), matcher.group(2).toUpperCase());
     }
 
     @Override
@@ -90,19 +83,22 @@ public class LangResourcePack extends AbstractFileResourcePack {
 
     private byte[] readFile(String path) throws IOException {
         if ("pack.mcmeta".equals(path)) {
-            return "{\"pack\": {\"description\": \"ReplayMod language files\", \"pack_format\": 34}}".getBytes(StandardCharsets.UTF_8);
+            // 1.21.9+ pack metadata declares a supported format range instead of a single pack_format
+            int packFormat = SharedConstants.getGameVersion().packVersion(ResourceType.CLIENT_RESOURCES).major();
+            return ("{\"pack\": {\"description\": \"ReplayMod language files\", \"min_format\": "
+                    + packFormat + ", \"max_format\": " + packFormat + "}}").getBytes(StandardCharsets.UTF_8);
         }
 
-        Path langPath = langPath(path);
-        if (langPath == null) return null;
+        String langFile = langFile(path);
+        if (langFile == null || !contents.containsFile(langFile)) return null;
 
-        List<String> langFile;
-        try (InputStream in = Files.newInputStream(langPath)) {
-            langFile = IOUtils.readLines(in, StandardCharsets.UTF_8);
+        List<String> langLines;
+        try (InputStream in = contents.openFile(langFile)) {
+            langLines = IOUtils.readLines(in, StandardCharsets.UTF_8);
         }
 
         Map<String, String> properties = new HashMap<>();
-        for (String line : langFile) {
+        for (String line : langLines) {
             if (line.trim().isEmpty() || line.trim().startsWith("#")) continue;
             int i = line.indexOf('=');
             String key = line.substring(0, i);
@@ -133,20 +129,13 @@ public class LangResourcePack extends AbstractFileResourcePack {
     private void findResources(ResourceType type, String path, Consumer<Identifier> consumer) {
         if (type != ResourceType.CLIENT_RESOURCES) return;
         if (!"lang".equals(path)) return;
-        Path base = baseLangPath();
-        try (Stream<Path> stream = Files.walk(base, 1)) {
-            stream
-                    .skip(1)
-                    .filter(Files::isRegularFile)
-                    .map(Path::getFileName).map(Path::toString)
-                    .map(LANG_FILE_NAME_PATTERN::matcher)
-                    .filter(Matcher::matches)
-                    .map(matcher -> String.format("%s_%s.json", matcher.group(1).toLowerCase(), matcher.group(2).toLowerCase()))
-                    .map(name -> identifier(ReplayMod.MOD_ID, "lang/" + name))
-                    .forEach(consumer);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        contents.visitContent(LANG_DIR, (relativePath, resource) -> {
+            Matcher matcher = LANG_FILE_NAME_PATTERN.matcher(relativePath.substring(relativePath.lastIndexOf('/') + 1));
+            if (matcher.matches()) {
+                String name = String.format("%s_%s.json", matcher.group(1).toLowerCase(), matcher.group(2).toLowerCase());
+                consumer.accept(identifier(ReplayMod.MOD_ID, "lang/" + name));
+            }
+        });
     }
 
     @Override

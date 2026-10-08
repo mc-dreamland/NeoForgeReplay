@@ -11,6 +11,9 @@ issueTrackerURL = "https://github.com/ReplayMod/ReplayMod/issues"
     logoFile        = "assets/replaymod/favicon_logo.png"
     displayTest     = "IGNORE_ALL_VERSION"
 
+[modproperties.replaymod]
+    "frex:flawless_frames_handler" = "com.replaymod.render.utils.FlawlessFrames"
+
     [[dependencies.replaymod]]
         modId         = "neoforge"
         type          = "required"
@@ -32,6 +35,8 @@ issueTrackerURL = "https://github.com/ReplayMod/ReplayMod/issues"
     config = "mixins.render.replaymod.json"
 [[mixins]]
     config = "mixins.replay.replaymod.json"
+[[mixins]]
+    config = "mixins.resourcepack.replaymod.json"
 [[mixins]]
     config = "mixins.render.blend.replaymod.json"
 [[mixins]]

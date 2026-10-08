@@ -23,7 +23,7 @@ import static com.replaymod.core.versions.MCVer.*;
 //$$ @Mixin(RendererLivingEntity.class)
 //#endif
 public abstract class MixinRenderLivingBase {
-    //#if FABRIC>=1
+    //#if FABRIC>=1 || MC>=11500
     @Inject(method = "hasLabel(Lnet/minecraft/entity/LivingEntity;)Z", at = @At("HEAD"), cancellable = true)
     //#else
     //$$ @Inject(method = "canRenderName(Lnet/minecraft/entity/LivingEntity;)Z", at = @At("HEAD"), cancellable = true)

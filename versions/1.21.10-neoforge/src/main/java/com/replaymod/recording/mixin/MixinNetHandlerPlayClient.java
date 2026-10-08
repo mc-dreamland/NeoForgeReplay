@@ -40,7 +40,7 @@ public abstract class MixinNetHandlerPlayClient {
 
         for (PlayerListS2CPacket.Entry entry : packet.getEntries()) {
             UUID uuid = entry.profileId();
-            if (uuid.equals(mcStatic.player.getGameProfile().getId()) && !playerListEntries.containsKey(uuid)) {
+            if (uuid.equals(mcStatic.player.getGameProfile().id()) && !playerListEntries.containsKey(uuid)) {
                 handler.spawnRecordingPlayer();
             }
         }

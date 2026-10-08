@@ -10,6 +10,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import com.replaymod.replay.production.ProductionReplaySessionController;
 
 import java.util.ArrayList;
 
@@ -33,11 +34,13 @@ public class NeoForgeEventBridge {
     }
 
     private static void onClientTick(ClientTickEvent.Pre event) {
+        ProductionReplaySessionController.getInstance().tick();
         PreTickCallback.EVENT.invoker().preTick();
     }
 
     private static void onScreenOpening(ScreenEvent.Opening event) {
-        OpenGuiScreenCallback.EVENT.invoker().openGuiScreen(event.getScreen());
+        event.setNewScreen(ProductionReplaySessionController.getInstance().filterOpeningScreen(event.getNewScreen()));
+        OpenGuiScreenCallback.EVENT.invoker().openGuiScreen(event.getNewScreen());
     }
 
     private static void onRenderGui(RenderGuiEvent.Post event) {

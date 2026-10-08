@@ -55,7 +55,7 @@ public class ReplayModBackend {
                         public ResourcePack openWithOverlays(ResourcePackInfo i, ResourcePackProfile.Metadata m) { return open(i); }
                     },
                     ResourceType.CLIENT_RESOURCES,
-                    new ResourcePackPosition(true, ResourcePackProfile.InsertionPosition.TOP, false)
+                    new ResourcePackPosition(false, ResourcePackProfile.InsertionPosition.TOP, false)
             );
             if (langPack != null) {
                 event.addRepositorySource(consumer -> consumer.accept(langPack));

@@ -43,7 +43,7 @@ version = "${project.name}-${rootProject.version}"
 base.archivesName.set("replaymod")
 java.withSourcesJar()
 
-if (project.name == "1.21.8-neoforge") {
+if (project.name == "1.21.10-neoforge") {
     tasks.processResources {
         from(rootProject.file("LICENSE"))
     }
@@ -98,10 +98,16 @@ val shadow by configurations.creating {
 }
 
 dependencies {
-    if (project.name == "1.21.8-neoforge") {
+    // NeoForge adds InGameHud.renderHotbar, clashing with Yarn's name for the vanilla method; these versions
+    // layer a Tiny file over Yarn to rename the vanilla one (Yarn is therefore not set via gradle.properties).
+    val yarnWithNeoForgeFixes = mapOf(
+        "1.21.8-neoforge" to "net.fabricmc:yarn:1.21.8+build.1:v2",
+        "1.21.10-neoforge" to "net.fabricmc:yarn:1.21.10+build.2:v2",
+    )[project.name]
+    if (yarnWithNeoForgeFixes != null) {
         mappings(loom.layered {
-            mappings("net.fabricmc:yarn:1.21.8+build.1:v2")
-            mappings(rootProject.file("versions/1.21.8-neoforge/neoforge-mapping-fixes.tiny"))
+            mappings(yarnWithNeoForgeFixes)
+            mappings(file("neoforge-mapping-fixes.tiny"))
         })
     }
 

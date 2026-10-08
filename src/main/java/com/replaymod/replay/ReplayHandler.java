@@ -50,7 +50,7 @@ import java.util.*;
 import net.minecraft.client.gui.screen.DownloadingTerrainScreen;
 //#endif
 
-//#if MC==12108 && FABRIC<=0
+//#if MC==12110 && FABRIC<=0
 //$$ import net.minecraft.network.packet.Packet;
 //#endif
 
@@ -163,7 +163,7 @@ public class ReplayHandler {
      */
     private final ReplayFile replayFile;
 
-    //#if MC==12108 && FABRIC<=0
+    //#if MC==12110 && FABRIC<=0
     //$$ private final ReplayResourcePackController resourcePackController;
     //#endif
 
@@ -211,7 +211,7 @@ public class ReplayHandler {
 
         markers = replayFile.getMarkers().or(Collections.emptySet());
 
-        //#if MC==12108 && FABRIC<=0
+        //#if MC==12110 && FABRIC<=0
         //$$ boolean reuseReplayResourcePacks = ReplayModReplay.instance.getCore().getSettingsRegistry()
         //$$         .get(Setting.REUSE_REPLAY_RESOURCE_PACKS);
         //$$ resourcePackController = ReplayResourcePackController.create(replayFile, reuseReplayResourcePacks);
@@ -243,7 +243,7 @@ public class ReplayHandler {
         //#endif
 
         // Force re-creation of camera entity by unloading the previous world
-        //#if MC==12108 && FABRIC<=0
+        //#if MC==12110 && FABRIC<=0
         //$$ ReplayResourcePackLifecycle.disconnectForInternalRestart(
         //$$         mc, resourcePackController.preservesPacksDuringRestart());
         //#elseif MC>=12106
@@ -300,7 +300,7 @@ public class ReplayHandler {
             //#endif
         }
 
-        //#if MC==12108 && FABRIC<=0
+        //#if MC==12110 && FABRIC<=0
         //$$ resourcePackController.close();
         //#endif
 
@@ -393,7 +393,7 @@ public class ReplayHandler {
         //#endif
         channel.pipeline().addLast(PACKET_HANDLER_NAME, quickMode ? quickReplaySender : fullReplaySender);
         channel.pipeline().addLast("packet_handler", networkManager);
-        //#if MC==12108 && FABRIC<=0
+        //#if MC==12110 && FABRIC<=0
         //$$ channel.pipeline().addLast("ReplayModReplay_packet_drop", new DropNonTerminalPacketsHandler());
         //#endif
         channel.pipeline().fireChannelActive();
@@ -445,7 +445,7 @@ public class ReplayHandler {
         return replayFile;
     }
 
-    //#if MC==12108 && FABRIC<=0
+    //#if MC==12110 && FABRIC<=0
     //$$ boolean handleResourcePackPush(UUID id, String url) {
     //$$     return resourcePackController.handlePush(id, url);
     //$$ }
@@ -1024,7 +1024,7 @@ public class ReplayHandler {
         }
     }
 
-    //#if MC==12108 && FABRIC<=0
+    //#if MC==12110 && FABRIC<=0
     //$$ private static class DropNonTerminalPacketsHandler extends ChannelOutboundHandlerAdapter {
     //$$     @Override
     //$$     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
