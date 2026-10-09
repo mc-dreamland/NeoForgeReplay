@@ -5,7 +5,8 @@
 
 [submodule "src/main/resources/assets/replaymod/lang"]
 	path = src/main/resources/assets/replaymod/lang
-	url = https://github.com/EaseCation/Translations
+	url = https://github.com/mc-dreamland/Translations.git
+	branch = 1.21.10
 [submodule "ReplayStudio"]
 	path = libs/ReplayStudio
 	url = https://github.com/EaseCation/ReplayStudio
