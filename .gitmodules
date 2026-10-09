@@ -1,11 +1,11 @@
 [submodule "jGui"]
 	path = jGui
-	url = https://github.com/mc-dreamland/jGui.git
+	url = git@github.com:mc-dreamland/jGui.git
 	branch = 1.21.10
 
 [submodule "src/main/resources/assets/replaymod/lang"]
 	path = src/main/resources/assets/replaymod/lang
-	url = https://github.com/mc-dreamland/Translations.git
+	url = git@github.com:mc-dreamland/Translations.git
 	branch = 1.21.10
 [submodule "ReplayStudio"]
 	path = libs/ReplayStudio
