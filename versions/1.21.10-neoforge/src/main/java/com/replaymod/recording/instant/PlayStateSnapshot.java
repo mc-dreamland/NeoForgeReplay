@@ -57,6 +57,9 @@ import net.minecraft.network.packet.s2c.play.PlayerListHeaderS2CPacket;
 import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
 import net.minecraft.network.packet.s2c.play.PlayerPositionLookS2CPacket;
 import net.minecraft.entity.EntityPosition;
+import net.minecraft.network.packet.s2c.play.PlayerRemoveS2CPacket;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
+import net.minecraft.world.GameMode;
 import net.minecraft.network.packet.s2c.play.PlayerSpawnPositionS2CPacket;
 import net.minecraft.network.packet.s2c.play.LightData;
 import net.minecraft.network.packet.s2c.play.ScoreboardDisplayS2CPacket;
@@ -131,6 +134,11 @@ final class PlayStateSnapshot {
     private final ClientPlayerEntity player;
     private final ClientPlayNetworkHandler networkHandler;
     private final ClientPlayerInteractionManager interactionManager;
+    /**
+     * Players which exist as entities but are no longer in the player list (typically server NPCs, which get removed
+     * from the list right after spawning). They are added temporarily so their spawn packets are accepted.
+     */
+    private final List<UUID> temporaryPlayerListEntries = new ArrayList<>();
 
     PlayStateSnapshot(MinecraftClient mc) {
         this.mc = mc;
@@ -212,6 +220,14 @@ final class PlayStateSnapshot {
             entries.put(id, new PlayerListS2CPacket.Entry(id, entry.getProfile(), listed.contains(id),
                     entry.getLatency(), entry.getGameMode(), entry.getDisplayName(), entry.shouldShowHat(),
                     entry.getListOrder(), null));
+        }
+        for (AbstractClientPlayerEntity entity : world.getPlayers()) {
+            UUID id = entity.getUuid();
+            if (!entries.containsKey(id)) {
+                entries.put(id, new PlayerListS2CPacket.Entry(id, entity.getGameProfile(), false, 0,
+                        GameMode.DEFAULT, null, true, 0, null));
+                temporaryPlayerListEntries.add(id);
+            }
         }
         PlayerListS2CPacket packet = new PlayerListS2CPacket(EnumSet.of(
                 PlayerListS2CPacket.Action.ADD_PLAYER,
@@ -359,6 +375,9 @@ final class PlayStateSnapshot {
                     out.accept(new EntityStatusEffectS2CPacket(entity.getId(), effect, false));
                 }
             }
+        }
+        if (!temporaryPlayerListEntries.isEmpty()) {
+            out.accept(new PlayerRemoveS2CPacket(temporaryPlayerListEntries));
         }
         // Relations once all entities exist
         for (Entity entity : world.getEntities()) {
