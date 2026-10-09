@@ -9,6 +9,8 @@ public final class Setting<T> extends SettingsRegistry.SettingKeys<T> {
     public static final Setting<Boolean> AUTO_START_RECORDING = make("autoStartRecording", "autostartrecording", false);
     public static final Setting<Boolean> AUTO_POST_PROCESS = make("autoPostProcess", null, true);
     public static final Setting<Boolean> RENAME_DIALOG = make("renameDialog", "rename_recording_dialog", true);
+    /** Whether instant recordings start with the local player's inventory, experience and health. */
+    public static final Setting<Boolean> RECORD_PLAYER_STATUS = make("recordPlayerStatus", "recordplayerstatus", true);
 
     private static <T> Setting<T> make(String key, String displayName, T defaultValue) {
         return new Setting<>(key, displayName, defaultValue);

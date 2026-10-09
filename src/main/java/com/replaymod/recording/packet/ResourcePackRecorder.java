@@ -127,6 +127,17 @@ public class ResourcePackRecorder {
     //$$     }
     //$$     recordResourcePack(file, id);
     //$$ }
+    //$$
+    //$$ /**
+    //$$  * Records a server resource pack which the client had already downloaded before recording started and returns
+    //$$  * the packet which applies it in the replay.
+    //$$  */
+    //$$ public synchronized ResourcePackSendS2CPacket recordAppliedResourcePack(UUID id, Path file) {
+    //$$     final int requestId = nextRequestId++;
+    //$$     mcIdToReplayId.put(id, requestId);
+    //$$     recordResourcePack(file, requestId);
+    //$$     return new ResourcePackSendS2CPacket(id, "replay://" + requestId, "", true, java.util.Optional.empty());
+    //$$ }
     //#elseif MC>=10800
     public ResourcePackStatusC2SPacket makeStatusPacket(String hash, Status action) {
         //#if MC>=11002

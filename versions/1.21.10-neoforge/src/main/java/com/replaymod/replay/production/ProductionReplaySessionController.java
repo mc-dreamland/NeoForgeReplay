@@ -8,6 +8,7 @@ import com.replaymod.recording.Setting;
 import com.replaymod.recording.mixin.ClientLoginNetworkHandlerAccessor;
 import com.replaymod.recording.mixin.NetworkManagerAccessor;
 import com.replaymod.recording.packet.PacketListener;
+import com.replaymod.recording.instant.InstantRecording;
 import com.replaymod.recording.packet.RecordingResult;
 import com.replaymod.replay.ReplayModReplay;
 import com.replaymod.replay.ReplaySessionHooks;
@@ -50,6 +51,10 @@ public final class ProductionReplaySessionController implements ReplaySessionHoo
     private ReturnTarget returnTarget;
     private ControlledTransitionToken transitionToken;
     private boolean initialized;
+    /** Whether the current recording was started mid-session (see {@link InstantRecording}) instead of at login. */
+    private boolean instantRecording;
+    /** Start a new instant recording once the server transfer which ended the previous one has completed. */
+    private boolean resumeInstantAfterTransfer;
 
     public static ProductionReplaySessionController getInstance() {
         return INSTANCE;
@@ -78,15 +83,28 @@ public final class ProductionReplaySessionController implements ReplaySessionHoo
                 && ReplayModReplay.instance.getReplayHandler() == null;
     }
 
+    /** In a live world (server or singleplayer), where an instant recording can be started. */
+    public boolean isInWorld() {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        return mc != null
+                && mc.getNetworkHandler() != null
+                && mc.world != null
+                && ReplayModReplay.instance.getReplayHandler() == null;
+    }
+
+    public boolean isInstantRecording() {
+        return instantRecording;
+    }
+
     public boolean isEngineCheckboxChecked() {
         if (state == ReplaySessionState.RECORDING_TRANSFER && recordingIntent != null) {
             return recordingIntent.sourceEngineEnabled;
         }
-        return isEngineState(state);
+        return isEngineState(state) && !instantRecording;
     }
 
     public boolean canToggleEngine() {
-        return isLiveServer() && isStableLiveState(state);
+        return isLiveServer() && isStableLiveState(state) && !instantRecording;
     }
 
     public boolean canOpenReplayCenter() {
@@ -204,49 +222,70 @@ public final class ProductionReplaySessionController implements ReplaySessionHoo
     }
 
     public void requestStartRecording(Screen returnScreen) {
-        if (!isLiveServer()) {
-            return;
-        }
-        if (state == ReplaySessionState.LIVE_READY) {
+        if (state == ReplaySessionState.LIVE_READY && isLiveServer()) {
             addMarker(MarkerProcessor.MARKER_NAME_END_CUT);
             setState(ReplaySessionState.LIVE_RECORDING, "recording started from ready engine");
             showStateToast("replaymod.production.recording_started",
                     "replaymod.production.recording_started.detail");
             return;
         }
-        if (state != ReplaySessionState.LIVE_ENGINE_DISABLED) {
+        if (state != ReplaySessionState.LIVE_ENGINE_DISABLED || !isInWorld()) {
             return;
         }
-        ReturnTarget target = captureCurrentTarget();
-        if (target == null) {
-            warn("replaymod.production.invalid_server");
-            return;
-        }
+        startInstantRecording();
+    }
 
-        MinecraftClient mc = MinecraftClient.getInstance();
-        mc.setScreen(new ConfirmScreen(confirmed -> {
-            if (!confirmed) {
-                if (state == ReplaySessionState.LIVE_ENGINE_DISABLED && isLiveServer()) {
-                    mc.setScreen(returnScreen);
-                }
-                return;
+    /**
+     * Start/finish shortcut: starts recording (instantly unless the engine is ready) or finishes the current one.
+     */
+    public void toggleRecording() {
+        if (state == ReplaySessionState.LIVE_RECORDING || state == ReplaySessionState.LIVE_PAUSED) {
+            requestFinishSegment();
+        } else {
+            requestStartRecording(null);
+        }
+    }
+
+    private void startInstantRecording() {
+        InstantRecording.StartResult result = InstantRecording.start(core,
+                ReplayModRecording.instance.getConnectionEventHandler(), listener -> {
+                    if (listener == null) {
+                        setState(ReplaySessionState.LIVE_ENGINE_DISABLED, "instant recording failed to start");
+                        return;
+                    }
+                    instantRecording = true;
+                    setState(ReplaySessionState.LIVE_RECORDING, "instant recording started");
+                    showStateToast("replaymod.production.recording_started",
+                            "replaymod.production.recording_started.detail");
+                });
+        LOGGER.info("Instant recording start requested: {}", result);
+        switch (result) {
+            case CONFIGURATION_UNAVAILABLE -> warn("replaymod.production.instant_unavailable");
+            case FAILED -> warn("replaymod.chat.recordingfailed");
+            default -> {
             }
-            if (state != ReplaySessionState.LIVE_ENGINE_DISABLED || !isLiveServer()) {
-                LOGGER.warn("Recording confirmation became stale before it was accepted");
-                return;
+        }
+    }
+
+    private void finishInstantRecording() {
+        PacketListener listener = currentPacketListener();
+        instantRecording = false;
+        if (listener == null) {
+            setState(ReplaySessionState.LIVE_ENGINE_DISABLED, "instant recorder missing while finishing");
+            return;
+        }
+        setState(ReplaySessionState.FINALIZING_RECORDING, "finishing instant recording");
+        listener.finishRecording(false).whenComplete((result, throwable) -> core.runLater(() -> {
+            if (state == ReplaySessionState.FINALIZING_RECORDING) {
+                setState(ReplaySessionState.LIVE_ENGINE_DISABLED, "instant recording finished");
             }
-            ReturnTarget confirmedTarget = captureCurrentTarget();
-            if (confirmedTarget == null) {
-                warn("replaymod.production.invalid_server");
-                mc.setScreen(returnScreen);
-                return;
+            if (throwable != null) {
+                LOGGER.error("Failed to save instant recording", unwrap(throwable));
+                showRecordingSaveFailureToast();
+            } else {
+                showRecordingSavedToast(result);
             }
-            setServerRecordingSetting(true);
-            beginRecordingTransfer(confirmedTarget, RecordingTargetState.RECORDING, false);
-        }, Text.translatable("replaymod.production.start_recording.confirm.title"),
-                Text.translatable("replaymod.production.start_recording.confirm.detail"),
-                Text.translatable("replaymod.production.start_recording.confirm.accept"),
-                Text.translatable("gui.cancel")));
+        }));
     }
 
     public void requestRecordingActions(Screen returnScreen) {
@@ -279,6 +318,11 @@ public final class ProductionReplaySessionController implements ReplaySessionHoo
     public void requestFinishSegment() {
         if ((state != ReplaySessionState.LIVE_RECORDING && state != ReplaySessionState.LIVE_PAUSED)
                 || !hasRecorder()) {
+            return;
+        }
+        if (instantRecording) {
+            // Nothing is kept running after an instant recording, so finishing it ends the recording
+            finishInstantRecording();
             return;
         }
         finishCurrentSegment(false);
@@ -407,6 +451,25 @@ public final class ProductionReplaySessionController implements ReplaySessionHoo
     }
 
     public void prepareRecordingContinuation(String host, int port) {
+        if (instantRecording) {
+            // The new server's login is not part of this recording; save it and start a new one once joined
+            boolean wasRecording = state == ReplaySessionState.LIVE_RECORDING;
+            PacketListener listener = currentPacketListener();
+            instantRecording = false;
+            resumeInstantAfterTransfer = wasRecording;
+            setState(ReplaySessionState.LIVE_ENGINE_DISABLED, "instant recording finished for server transfer");
+            if (listener != null) {
+                listener.finishRecording(false).whenComplete((result, throwable) -> core.runLater(() -> {
+                    if (throwable != null) {
+                        LOGGER.error("Failed to save instant recording before transfer", unwrap(throwable));
+                        showRecordingSaveFailureToast();
+                    } else {
+                        showRecordingSavedToast(result);
+                    }
+                }));
+            }
+            return;
+        }
         if (!isEngineState(state)) {
             return;
         }
@@ -474,9 +537,11 @@ public final class ProductionReplaySessionController implements ReplaySessionHoo
         }
 
         if (isEngineState(state)) {
-            if (state == ReplaySessionState.LIVE_RECORDING || state == ReplaySessionState.LIVE_PAUSED) {
+            if ((state == ReplaySessionState.LIVE_RECORDING || state == ReplaySessionState.LIVE_PAUSED)
+                    && !instantRecording) {
                 finishCurrentSegment(true);
             }
+            instantRecording = false;
             PacketListener listener = currentPacketListener();
             if (listener == null) {
                 setState(ReplaySessionState.LIVE_ENGINE_DISABLED, "missing recorder before replay launch");
@@ -658,6 +723,10 @@ public final class ProductionReplaySessionController implements ReplaySessionHoo
             finishRecorderOnExit();
             setState(ReplaySessionState.LIVE_ENGINE_DISABLED, "left multiplayer flow with recorder installed");
         }
+        if (leavingMultiplayerFlow) {
+            instantRecording = false;
+            resumeInstantAfterTransfer = false;
+        }
         if (state == ReplaySessionState.RECORDING_TRANSFER && recordingIntent != null
                 && requested instanceof net.minecraft.client.gui.screen.multiplayer.ConnectScreen) {
             recordingIntent.targetConnectStarted = true;
@@ -683,6 +752,14 @@ public final class ProductionReplaySessionController implements ReplaySessionHoo
         if (state == ReplaySessionState.RETURNING) {
             completeManagedReturnIfNeeded();
             setState(ReplaySessionState.LIVE_ENGINE_DISABLED, "server rejoin completed without recorder");
+        }
+        if (resumeInstantAfterTransfer) {
+            resumeInstantAfterTransfer = false;
+            core.runLater(() -> {
+                if (state == ReplaySessionState.LIVE_ENGINE_DISABLED) {
+                    startInstantRecording();
+                }
+            });
         }
     }
 
@@ -983,7 +1060,9 @@ public final class ProductionReplaySessionController implements ReplaySessionHoo
                         }
                     }).dimensions(centerX - 102, height / 2 - 10, 100, 20).build());
             addDrawableChild(ButtonWidget.builder(
-                    Text.translatable("replaymod.production.finish_segment"), button -> {
+                    Text.translatable(instantRecording
+                            ? "replaymod.production.finish_recording"
+                            : "replaymod.production.finish_segment"), button -> {
                         MinecraftClient.getInstance().setScreen(parent);
                         requestFinishSegment();
                     }).dimensions(centerX + 2, height / 2 - 10, 100, 20).build());
@@ -998,8 +1077,9 @@ public final class ProductionReplaySessionController implements ReplaySessionHoo
 
         @Override
         public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-            context.drawCenteredTextWithShadow(textRenderer, title, width / 2, height / 2 - 42, 0xffffff);
+            // The background is drawn by super.render, and text colors need an opaque alpha channel since 1.21.6
             super.render(context, mouseX, mouseY, delta);
+            context.drawCenteredTextWithShadow(textRenderer, title, width / 2, height / 2 - 42, 0xffffffff);
         }
     }
 }

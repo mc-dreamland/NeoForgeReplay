@@ -202,7 +202,7 @@ public class GuiHandler extends EventRegistrations {
 
     private void injectProductionServerControls(Screen guiScreen, Collection<ClickableWidget> buttonList) {
         ProductionReplaySessionController controller = ProductionReplaySessionController.getInstance();
-        if (!controller.isLiveServer()) {
+        if (!controller.isInWorld()) {
             return;
         }
         if (buttonList.stream().anyMatch(button -> button instanceof InjectedButton injected

@@ -554,7 +554,7 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
         //#endif
     }
 
-    private static Packet decodePacket(NetworkState connectionState, ByteBuf buf) {
+    public static Packet decodePacket(NetworkState connectionState, ByteBuf buf) {
         PacketByteBuf packetBuf = new PacketByteBuf(buf.slice());
         int packetId = packetBuf.readVarInt();
         byte[] bytes = new byte[packetBuf.readableBytes()];
@@ -608,6 +608,10 @@ public class PacketListener extends ChannelInboundHandlerAdapter {
 
     public ResourcePackRecorder getResourcePackRecorder() {
         return resourcePackRecorder;
+    }
+
+    public Channel getChannel() {
+        return channel;
     }
 
     public class DecodedPacketListener extends ChannelDuplexHandler {

@@ -35,6 +35,7 @@ import net.minecraft.world.World;
 //#endif
 //#endif
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -155,58 +156,9 @@ public class ConnectionEventHandler {
                 autoStart = true;
             }
 
-            String name = sdf.format(Calendar.getInstance().getTime());
-            Path outputPath = Utils.replayNameToPath(core.folders.getRecordingFolder(), name);
-            ReplayFile replayFile = core.files.open(outputPath);
-
-            replayFile.writeModInfo(ModCompat.getInstalledNetworkMods());
-
-            ReplayMetaData metaData = new ReplayMetaData();
-            metaData.setSingleplayer(local);
-            metaData.setServerName(worldName);
-            metaData.setCustomServerName(serverName);
-            metaData.setGenerator("ReplayMod v" + ReplayMod.instance.getVersion());
-            metaData.setDate(System.currentTimeMillis());
-            metaData.setMcVersion(ReplayMod.instance.getMinecraftVersion());
-
-            Channel channel = ((NetworkManagerAccessor) networkManager).getChannel();
-            packetListener = new PacketListener(core, channel, outputPath, replayFile, metaData);
-
-            //#if MC>=12005
-            //$$ String target = channel.pipeline().get("inbound_config") != null ? "inbound_config" : PacketListener.DECODER_KEY;
-            //$$ channel.pipeline().addBefore(target, PacketListener.RAW_RECORDER_KEY, packetListener);
-            //$$ channel.pipeline().addAfter(target, PacketListener.DECODED_RECORDER_KEY, packetListener.new DecodedPacketListener());
-            //#else
-            if (channel.pipeline().get(PacketListener.DECODER_KEY) != null) {
-                // Regular channel, we'll inject our recorder directly before the decoder
-                channel.pipeline().addBefore(PacketListener.DECODER_KEY, PacketListener.RAW_RECORDER_KEY, packetListener);
-                channel.pipeline().addAfter(PacketListener.DECODER_KEY, PacketListener.DECODED_RECORDER_KEY, packetListener.new DecodedPacketListener());
-            } else {
-                // Integrated server passes packets directly, there's no splitting, decompression or decoding
-                channel.pipeline().addFirst(PacketListener.RAW_RECORDER_KEY, packetListener);
-                channel.pipeline().addAfter(PacketListener.RAW_RECORDER_KEY, PacketListener.DECODED_RECORDER_KEY, packetListener.new DecodedPacketListener());
-            }
-            //#endif
-
-            recordingEventHandler = new RecordingEventHandler(packetListener);
-            recordingEventHandler.register();
-
-            if (installRecordingControls) {
-                guiControls = new GuiRecordingControls(core, packetListener, autoStart);
-                guiControls.register();
-            }
-            if (installRecordingOverlay) {
-                guiOverlay = guiControls == null
-                        ? new GuiRecordingOverlay(getMinecraft(), core.getSettingsRegistry())
-                        : new GuiRecordingOverlay(getMinecraft(), core.getSettingsRegistry(), guiControls);
-                guiOverlay.register();
-            }
-
-            if (autoStart) {
-                core.printInfoToChat("replaymod.chat.recordingstarted");
-            } else {
-                packetListener.addMarker(MarkerProcessor.MARKER_NAME_START_CUT, 0);
-            }
+            packetListener = createRecorder(networkManager, local, worldName, serverName);
+            attachRecorder(packetListener);
+            activateRecorder(autoStart, installRecordingControls, installRecordingOverlay);
             return packetListener;
         } catch (Throwable e) {
             logger.error("Failed to install ReplayMod recorder", e);
@@ -215,6 +167,78 @@ public class ConnectionEventHandler {
             }
             core.printWarningToChat("replaymod.chat.recordingfailed");
             return null;
+        }
+    }
+
+    /**
+     * Creates the replay file and its recorder for the given connection without hooking it into the connection yet.
+     * The recorder becomes the current one (see {@link #getPacketListener()}) immediately.
+     */
+    public PacketListener createRecorder(ClientConnection networkManager, boolean local, String worldName,
+                                         String serverName) throws IOException {
+        String name = sdf.format(Calendar.getInstance().getTime());
+        Path outputPath = Utils.replayNameToPath(core.folders.getRecordingFolder(), name);
+        ReplayFile replayFile = core.files.open(outputPath);
+
+        replayFile.writeModInfo(ModCompat.getInstalledNetworkMods());
+
+        ReplayMetaData metaData = new ReplayMetaData();
+        metaData.setSingleplayer(local);
+        metaData.setServerName(worldName);
+        metaData.setCustomServerName(serverName);
+        metaData.setGenerator("ReplayMod v" + ReplayMod.instance.getVersion());
+        metaData.setDate(System.currentTimeMillis());
+        metaData.setMcVersion(ReplayMod.instance.getMinecraftVersion());
+
+        Channel channel = ((NetworkManagerAccessor) networkManager).getChannel();
+        packetListener = new PacketListener(core, channel, outputPath, replayFile, metaData);
+        return packetListener;
+    }
+
+    /**
+     * Inserts the recorder into its connection's pipeline. Must be called on the channel's event loop.
+     */
+    public void attachRecorder(PacketListener packetListener) {
+        Channel channel = packetListener.getChannel();
+        //#if MC>=12005
+        //$$ String target = channel.pipeline().get("inbound_config") != null ? "inbound_config" : PacketListener.DECODER_KEY;
+        //$$ channel.pipeline().addBefore(target, PacketListener.RAW_RECORDER_KEY, packetListener);
+        //$$ channel.pipeline().addAfter(target, PacketListener.DECODED_RECORDER_KEY, packetListener.new DecodedPacketListener());
+        //#else
+        if (channel.pipeline().get(PacketListener.DECODER_KEY) != null) {
+            // Regular channel, we'll inject our recorder directly before the decoder
+            channel.pipeline().addBefore(PacketListener.DECODER_KEY, PacketListener.RAW_RECORDER_KEY, packetListener);
+            channel.pipeline().addAfter(PacketListener.DECODER_KEY, PacketListener.DECODED_RECORDER_KEY, packetListener.new DecodedPacketListener());
+        } else {
+            // Integrated server passes packets directly, there's no splitting, decompression or decoding
+            channel.pipeline().addFirst(PacketListener.RAW_RECORDER_KEY, packetListener);
+            channel.pipeline().addAfter(PacketListener.RAW_RECORDER_KEY, PacketListener.DECODED_RECORDER_KEY, packetListener.new DecodedPacketListener());
+        }
+        //#endif
+    }
+
+    /**
+     * Starts the client-side recording helpers (own player tracking, controls, overlay) for the current recorder.
+     */
+    public void activateRecorder(boolean autoStart, boolean installRecordingControls, boolean installRecordingOverlay) {
+        recordingEventHandler = new RecordingEventHandler(packetListener);
+        recordingEventHandler.register();
+
+        if (installRecordingControls) {
+            guiControls = new GuiRecordingControls(core, packetListener, autoStart);
+            guiControls.register();
+        }
+        if (installRecordingOverlay) {
+            guiOverlay = guiControls == null
+                    ? new GuiRecordingOverlay(getMinecraft(), core.getSettingsRegistry())
+                    : new GuiRecordingOverlay(getMinecraft(), core.getSettingsRegistry(), guiControls);
+            guiOverlay.register();
+        }
+
+        if (autoStart) {
+            core.printInfoToChat("replaymod.chat.recordingstarted");
+        } else {
+            packetListener.addMarker(MarkerProcessor.MARKER_NAME_START_CUT, 0);
         }
     }
 
@@ -238,5 +262,9 @@ public class ConnectionEventHandler {
 
     public PacketListener getPacketListener() {
         return packetListener;
+    }
+
+    public RecordingEventHandler getRecordingEventHandler() {
+        return recordingEventHandler;
     }
 }

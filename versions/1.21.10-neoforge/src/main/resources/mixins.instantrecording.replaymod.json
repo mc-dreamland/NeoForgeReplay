@@ -1,0 +1,23 @@
+{
+  "required": true,
+  "package": "com.replaymod.recording.instant.mixin",
+  "client": [
+    "BiomeAccessAccessor",
+    "BossBarHudAccessor",
+    "ChunkDataS2CPacketAccessor",
+    "ClientCommonNetworkHandlerAccessor",
+    "ClientWorldAccessor",
+    "ClientWorldPropertiesAccessor",
+    "MixinConfigurationCapture",
+    "MixinLoginCapture",
+    "MixinReconfigurationCapture",
+    "PackEntryAccessor",
+    "PlayerListHudAccessor",
+    "PlayerListS2CPacketAccessor",
+    "ServerResourcePackLoaderAccessor",
+    "ServerResourcePackManagerAccessor"
+  ],
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "refmap": "mixins.replaymod.refmap.json"
+}

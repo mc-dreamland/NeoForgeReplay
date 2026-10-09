@@ -9,6 +9,7 @@ import com.replaymod.recording.handler.ConnectionEventHandler;
 import com.replaymod.recording.handler.GuiHandler;
 import com.replaymod.recording.mixin.NetworkManagerAccessor;
 import com.replaymod.recording.packet.PacketListener;
+import com.replaymod.recording.instant.ConfigurationPhaseCapture;
 import com.replaymod.replay.ReplayHandler;
 import com.replaymod.replay.production.ProductionReplaySessionController;
 import com.replaymod.replay.production.ProductionReplaySessionController.RecordingDecision;
@@ -48,6 +49,9 @@ public class ReplayModRecording implements Module {
                 }
             }
         }, false);
+        // Unbound by default; starts an instant recording or finishes the current one
+        registry.registerKeyBinding("replaymod.input.togglerecording", 0,
+                () -> ProductionReplaySessionController.getInstance().toggleRecording(), false);
     }
 
     @Override
@@ -61,6 +65,8 @@ public class ReplayModRecording implements Module {
     public void initiateRecording(ClientConnection networkManager) {
         Channel channel = ((NetworkManagerAccessor) networkManager).getChannel();
         if (channel.pipeline().get(ReplayHandler.PACKET_HANDLER_NAME) != null) return;
+        // Keeps login/configuration packets until the play phase starts, so recordings can begin at any time later
+        ConfigurationPhaseCapture.beginLogin(networkManager);
         if (channel.hasAttr(ATTR_CHECKED)) return;
         ProductionReplaySessionController sessionController = ProductionReplaySessionController.getInstance();
         RecordingDecision decision = sessionController.decideRecording(networkManager);
